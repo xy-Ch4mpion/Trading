@@ -1,0 +1,2682 @@
+import re
+result_position = r'''<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+<title>
+	VE竞赛管理系统-竞赛端
+</title>
+<meta http-equiv="X-UA-Compatible" content="IE=9">
+    <link rel="shortcut icon" href="/Skins/default/images/favicon.ico">
+    
+    <script charset="utf-8" src="http://goutong.baidu.com/site/812/be35c7b4de185a28962bdade5f99fa90/b.js?siteId=11542697"></script><script src="https://hm.baidu.com/hm.js?be35c7b4de185a28962bdade5f99fa90"></script><script type="text/javascript" language="javascript" src="/JS/easyui/jquery-1.4.4.min.js"></script>
+    
+    <link href="/Skins/default/Framework.css" rel="stylesheet" type="text/css">
+    <link href="/Skins/default/Common.css" rel="stylesheet" type="text/css">
+    <link href="/Skins/default/easyui/themes/blue/easyui.css" rel="stylesheet" type="text/css">
+    <link href="/Skins/default/easyui/themes/icon.css" rel="stylesheet" type="text/css">
+    <script type="text/javascript" language="javascript" src="/Skins/easyui/jquery.easyui.min.js"></script>
+    <!--UI Reference-->
+    <script type="text/javascript" language="javascript" src="/Skins/easyui/jq.extends.js"></script>
+    <!---------------->
+    <script type="text/javascript" language="javascript" src="/JS/easyui/locale/easyui-lang-zh_CN.js"></script>
+    <!--个股资讯地址配置-->
+    <script type="text/javascript" language="javascript" src="/Pages/zixun_url.js"></script>
+    <script type="text/javascript" language="javascript">
+        $(function () {
+            $(":text.pagination-num").live('keydown', function () {
+                $("form").submit(function () {
+                    return false;
+                });
+            });
+        });
+        //
+        var loginName = $('#LeftTraderKeywords').val();
+        // 是否选择了模糊搜索中的数据
+        var isClickSearchTips = false;
+        function _rankSearchLoop(_box) {
+            return function () {
+                rankSearchLoop(_box);
+            }
+        }
+        var rankSearchLoop = function (box) {
+            //var box = $('.rankSearch, .szRankSearch, .personRankSearch');
+            if ($.trim(box.val()).length &gt;= 1) {
+                $.post('/Handlers/Default/Match/AdminMatchQueryHandler.ashx/?method=GetRankSearchData',
+                {
+                    Keywords: box.val(),
+                    rankType: box.attr('rankType'),
+                    groupID:$("#dplGroup").val()
+                },
+                function (data) {
+                    //复原标记位
+                    isClickSearchTips = false;
+                    //不存在DOM则新建
+                    //if ($('#nameCodeInfos').length == 0) {
+                        $('#nameCodeInfos').remove();
+                        $(document.body).append('&lt;div id="nameCodeInfos" style="position: absolute; z-index: 999999999; text-align: left;background-color: #fff; border: 1px #ccc solid; display: none; _width:250px; overflow:hidden;"&gt;&lt;/div&gt;');
+                        var infoLeft = box.offset().left;
+                        var infoTop = box.offset().top + box.height();
+                    //}
+                    if (data.length &gt; 0) {
+                        $('#nameCodeInfos').empty();
+                        // 只显示前10条
+                        for (var i = 0; i &lt; data.length &amp;&amp; i &lt; 10; i++) {
+                            if (Object.prototype.toString.call(data[i]).slice(8, -1) == "Object")
+                                $('#nameCodeInfos').append('&lt;a type="' + data[i].Type + '"&gt;' + data[i].Value + '&lt;/a&gt;');
+                            else
+                                $('#nameCodeInfos').append('&lt;a&gt;' + data[i] + '&lt;/a&gt;');
+                        }
+
+                        //if ($('iframe', '#nameCodeInfos').length == 0) {
+                        //    $('#nameCodeInfos').append('&lt;iframe style="_width:250px;_height:200px; top:0; left:0;position: absolute; z-index: -1; background-color:#fff;" frameborder="0"&gt;&lt;/iframe&gt;');
+                        //}
+                        $('#nameCodeInfos').offset({
+                            left: infoLeft,
+                            top: infoTop
+                        });
+                        //显示搜索面板
+                        $('#nameCodeInfos').show();
+                        //触发文本框事件
+                        $('.rankSearch, .szRankSearch, .personRankSearch').unbind('blur');
+                        $('.rankSearch, .szRankSearch, .personRankSearch').blur(function () {
+                            if ($('#nameCodeInfos') != undefined) {
+                                $('#nameCodeInfos').hide();
+                            }
+                        });
+                        $('#nameCodeInfos a').click(function () {
+                            var tempVal = box.val();
+                            if (box.val)
+                                box.val($(this).text().split('/')[0]);
+                            if (typeof ($(this).attr("type")) != "undefined") {//个人排行榜 会有这个属性值
+                                if ($("#searchType"))//可查人、班级、赛组
+                                    $("#searchType").val($(this).attr("type"));
+                            }
+                            $('#nameCodeInfos').hide();
+                            if (box.val() != tempVal) {
+                                box.change();
+                            }
+                            isClickSearchTips = true;
+                            ////box.change();   //自动提示框选择前会导致下单的change事件触发，因此主动在填充后调用一次。
+                        });
+                    } else {
+                        $('#nameCodeInfos').hide();
+                    }
+                },
+                'json');
+            } else {
+                $('#nameCodeInfos').hide();
+            }
+        };
+        var rankSearchImgUrl = '';
+        var rankSearchTime;
+        $('.rankSearch, .szRankSearch, .personRankSearch').live('focus', function () {
+            var box = $(this);
+            rankSearchImgUrl = box.css('background');
+            box.css('background', 'none');
+            rankSearchTime = setInterval(_rankSearchLoop(box), 1000);
+        });
+        $('.rankSearch, .szRankSearch, .personRankSearch').live('blur', function () {
+            clearInterval(rankSearchTime);
+            if ($(this).val() == '') {
+                $(this).css('background', rankSearchImgUrl);
+            }
+        });
+        //var searchTemp;
+        $('#nameCodeInfos').live({
+            mouseenter: function () {
+                //clearTimeout(searchTemp);
+                $('.rankSearch, .szRankSearch, .personRankSearch').unbind('blur');
+            },
+            mouseleave: function () {
+                //clearTimeout(searchTemp);
+                $('.rankSearch, .szRankSearch, .personRankSearch').blur(function () {
+                    if ($('#nameCodeInfos') != undefined) {
+                        $('#nameCodeInfos').hide();
+                    }
+                });
+            }
+        });
+        var PageObject; //页面对象
+        //系统级全局变量
+        var marketRefreshTimer; //行情刷新全局定时器，在行情刷新页面使用
+
+        //清理旧的内容
+        //easyui应用部分元素会被加载到页面末尾，因为加载新内容时需要移除，防止大量生成代码堆积。
+        function ClearBefore() {
+            try {
+                //销毁行情刷新计时器
+                if (marketRefreshTimer != undefined) {
+                    window.clearTimeout(marketRefreshTimer);
+                }
+                $('#mainContainer').nextAll().remove();
+            } catch (e) {
+            }
+        }
+        function _filter_staff_from_exist(_box) {
+            return function () {
+                filter_staff_from_exist(_box);
+            }
+        }
+        var filter_staff_from_exist = function (box) {
+            //var box = $('.nameCode');
+            if ($.trim(box.val()).length &gt;= 1) {
+                $.post('/Handlers/Default/CommonQueryHandler.ashx/?method=IndexCommodityList',
+                {
+                    nameCode: $.trim(box.val()),
+                    market: (box.attr('market') == undefined) ? '' : box.attr('market')
+                },
+                function (data) {
+                    //不存在DOM则新建
+                    //if ($('#nameCodeInfos').length == 0) {
+                        $('#nameCodeInfos').remove();
+                        $(document.body).append('&lt;div id="nameCodeInfos" style="position: absolute; z-index: 999999999; text-align: left;background-color: #fff; border: 1px #ccc solid; display: none; _width:250px; overflow:hidden;"&gt;&lt;/div&gt;');
+                        var infoLeft = box.offset().left;
+                        var infoTop = box.offset().top + box.height();
+                    //}
+                    if (data.length &gt; 0) {
+                        $('#nameCodeInfos').empty();
+                        for (var i = 0; i &lt; data.length; i++) {
+                            $('#nameCodeInfos').append('&lt;a&gt;' + data[i] + '&lt;/a&gt;');
+                        }
+                        //显示搜索面板
+                        
+                        //if ($('iframe', '#nameCodeInfos').length == 0) {
+                        //    $('#nameCodeInfos').append('&lt;iframe style="_width:250px;_height:200px; top:0; left:0;position: absolute; z-index: -1; background-color:#fff;" frameborder="0"&gt;&lt;/iframe&gt;');
+                        //}
+                        //console.log(box.offset().left + ',' + box.offset().top);
+                        $('#nameCodeInfos').offset({
+                            left: infoLeft,
+                            top: infoTop
+                        });
+                        $('#nameCodeInfos').show();
+                        //触发文本框事件
+                        $('.nameCode').unbind('blur');
+                        $('.nameCode').blur(function () {
+                            if ($('#nameCodeInfos') != undefined) {
+                                $('#nameCodeInfos').hide();
+                            }
+                        });
+                        $('#nameCodeInfos a').click(function () {
+                            var tempVal = box.val();
+                            if (box.val)
+                                box.val($(this).text().split('/')[0]);
+                            $('#nameCodeInfos').hide();
+                            if (box.val() != tempVal) {
+                              box.change();
+                            }
+                            //box.change();   //自动提示框选择前会导致下单的change事件触发，因此主动在填充后调用一次。
+                        });
+                    } else {
+                        $('#nameCodeInfos').hide();
+                    }
+                },
+                'json');
+            } else {
+                $('#nameCodeInfos').hide();
+            }
+        };
+        var time;
+        $('.nameCode').live('focus', function () {
+            var box = $(this);
+            box.css('background', 'none');
+            time = setInterval(_filter_staff_from_exist(box), 1000);
+        });
+        $('.nameCode').live('blur', function () {
+            clearInterval(time);
+            if ($(this).val() == '') {
+                $(this).css('background', 'url(/Skins/Default/images/searchInfotext.gif) no-repeat 5px 2px');
+            }
+        });
+        var temp;
+        $('#nameCodeInfos').live({
+            mouseenter: function () {
+                //clearTimeout(temp);
+                //temp = setTimeout(function () {
+                    $('.nameCode').unbind('blur');
+                //}, 100);
+            },
+            mouseleave: function () {
+                //clearTimeout(temp);
+                //temp = setTimeout(function () {
+                    $('.nameCode').blur(function () {
+                        if ($('#nameCodeInfos') != undefined) {
+                            $('#nameCodeInfos').hide();
+                        }
+                    });
+                //}, 100);
+            }
+        });
+        Number.prototype.toFixed = function (len) {
+            return Math.round(this * Math.pow(10, len)) / Math.pow(10, len);
+        }
+
+        //行情图表窗口
+        $('.lnkStockChart').live('click', function () {
+            if ($('#stockChart').html() == null) {
+                $(document.body).append('&lt;div id="stockChart"&gt;&lt;iframe id="ifrStockChart" frameborder="0" scrolling="no" src="/blank.htm" class="stock-ifr-size"&gt;&lt;/iframe&gt;&lt;/div&gt;');
+                $('#stockChart').dialog({
+                    title: '行情图表',
+                    width: 760,
+                    modal: true,
+                    draggable: false,
+                    cache: false,
+                    minimizable: false,
+                    maximizable: false,
+                    collapsible: false,
+                    closed: true,
+                    onClose: function () {
+                        $('#ifrStockChart').attr('src', 'javascript:;');  //防止闪烁
+                    }
+                });
+            }
+            $('#ifrStockChart').attr('src', '/Pages/Default/StockCharts/Frame.aspx?Code=' + $(this).attr('value'));
+            $('#stockChart').dialog('open');
+        });
+    </script>
+    
+    <style>
+    /*reset*/
+    #AssetSurvey_frame {
+        position:relative;
+        width:924px;
+    }
+    #AssetSurvey_frame .formdbzq{
+        margin-bottom:15px;
+        width:924px;   
+    }
+    #ProfitAdd {
+        width:926px;
+    }
+        #myaccordion1 {
+            width:924px;
+        }
+</style>
+    <script type="text/javascript" language="javascript">
+        $(function () {
+
+        /*允许用户同时进入融资融券大赛和普通大赛
+            //验证交易员是否进入的同一个大赛，防止用户同时进入多个大赛引起显示不正常的问题
+            var localHref = window.location.href;
+            //鼠标点击事件，检查COOKIE和交易员是否匹配
+            var traderValid = function () {
+                var matchTrader1 = localHref.match(/TraderID=[0-9]+/ig).toString().match(/[0-9]+/ig);
+                var matchTrader2 = document.cookie.match(/TraderID=[0-9]+/ig).toString().match(/[0-9]+/ig);
+                if (matchTrader1.toString() != '' &amp;&amp; matchTrader2.toString() != '') {
+                    if (matchTrader1.toString() != matchTrader2.toString()) {
+                        alert( '您已经登录其他大赛，请重新进入大赛才能进行操作。');
+                        window.location.href = 'PreMatchIndex.aspx';
+                        return;
+                    }
+                }
+            }
+            $('a,input').live('click', traderValid);
+            $('a,input').live('mouseover', traderValid);
+*/
+
+            ///////////////////////////////////////////////////////////////////////////////
+
+            //导航菜单样式初始化
+            $('label.vslide-title', $('#nav-menu-box')).each(function () {
+                $(this).next().hide();
+            });
+            //默认展开第一栏
+            $('label.vslide-title:first', $('#nav-menu-box')).next().show();
+
+            //栏目点击展开关闭
+            $('label.vslide-title', $('#nav-menu-box')).click(function () {
+                if ($(this).next().css('display') == 'none') {
+                 $('label.vslide-title', $('#nav-menu-box')).filter(".exp").click();
+                    $(this).removeClass('cls');
+                    $(this).addClass('exp');
+                    $(this).next().slideDown('fast');
+                } else {
+                    $(this).removeClass('exp');
+                    $(this).addClass('cls');
+                    $(this).next().slideUp('fast');
+                }
+            });
+
+            //功能链接
+            $('a', $('#nav-menu-box')).not($("#rzrqLink")).click(function () {
+                if ($(this).attr('target') != '') {
+                    return true;
+                }
+                $('a', $('#nav-menu-box')).removeClass('current');
+                $(this).addClass('current');
+                if ($(this).attr('href') != '#') {
+                    PageObject = null; //清除页面对象
+                    ClearBefore();  //清理Easyui生成的层代码
+                    $('#frame').panel('refresh', $(this).attr('href'));
+                }
+                $('#link-current').text('&gt; ' + $(this).parent().prev().text() + ' &gt; ' + $(this).html());
+
+                $(".compare").hide();
+                return false;
+            });
+            $("#rzrqLink").click(function(){
+             var currentTraderID=window.location.href.match(/TraderID=[0-9]+/ig).toString().match(/[0-9]+/ig);
+             var url=$(this).attr("href")+"?TraderID="+currentTraderID;
+             window.location.href=url;
+             return false;
+            });
+            $('#frame').panel({
+                cache: false,
+                border: false
+            });
+            //比一比
+            $("#btn-compare").click(function () {
+                var herfStr = '/Pages/Default/Rankings/';
+                var ids = "";
+                var type = $(".compare-top").attr("type");
+                var searchDate = $(".compare-top").attr("date");
+                var compareCount = 0;
+                $(".compare .man").each(function () {
+                    if (ids == "") {
+                        ids = $(this).attr("value");
+                    } else {
+                        ids += "," + $(this).attr("value");
+                    }
+                    compareCount += 1;
+                });
+                var winTitle;
+                if (type == 0) {//用户比一比
+                    if (compareCount &lt; 2) {
+                        alert("请至少选择两个用户！");
+                        return;
+                    }
+                    herfStr += "TraderCompare.aspx?TraderIDs=" + ids;
+                    winTitle = "用户比一比";
+                }
+                else if (type == 1) {//赛组比一比
+                    if (compareCount &lt; 2) {
+                        alert("请至少选择两个赛组！");
+                        return;
+                    }
+                    herfStr += "TeamCompare.aspx?TeamIDs=" + ids;
+                    winTitle = "赛组比一比";
+                } else {
+                    alert("不能进行比较！");
+                    return;
+                }
+                herfStr += "&amp;SearchDate=" + searchDate;
+                if (!$("#divCompareWindow").html()) {
+                    $("#mainbody").append('&lt;div id="divCompareWindow" style="_position:relative; _overflow-x:hidden;"&gt;&lt;/div&gt;');
+                }
+                $("#divCompareWindow").window({
+                    href: herfStr,
+                    title: winTitle,
+                    height: 500,
+                    width: 650,
+                    shadow: true,
+                    draggable: false,
+                    modal: true,
+                    cache: false,
+                    minimizable: false,
+                    maximizable: false,
+                    collapsible: false
+                });
+            });
+            $(".compare a").click(function () {
+                $(".compare ul li").remove();
+            })
+            $(".compare").hide();
+
+            //*****************************************
+            //自动跳出提示框
+            //*****************************************
+            function CheckMessager() {
+                $.post('/Handlers/Default/MyMessageHandler.ashx/?method=CheckMessager',
+                {},
+                function (data) {
+                    var bonus = ["Bonus0", "Bonus1", "Bonus5", "Bonus6", "Bonus7", "Bonus8", "Bonus9", "Bonus13", "Bonus14", "Bonus15", "Bonus19", "Bonus20", "Bonus21", "Bonus22"];
+                    var bonusNum = 0;
+                    var allNum = 0;
+                    var RZRQAdditionalNum = 0;
+                    var shares = ["Shares16","Shares17","Shares18"];
+                    var BondDividendNum=0;//债权派息提示信息数
+                    var FundResolutionNum =0;//基金拆合股提示信息数
+                    var SOExerciseNoticeNum =0;//到期行权提醒提示信息数
+                    var ExercisetipsNum=0;//行权提示提示信息数                   
+                    var sharesNum = 0;
+
+//                    var closePositionNum = 0;//强平提示
+
+
+                    for (var i = 0; i &lt; data.length; i++) {
+                        var text = data[i].Content
+                        if (/FoulsRecord\.aspx/ig.test(text)) {
+                            text = text.replace(/&lt;a.+&lt;\/a&gt;/ig, '&lt;a href="javascript:void(0)" class="lnk" id="messager_' + data[i].ID + '"&gt;点击&lt;a/&gt;');
+                        }
+                        if (/InfomationNotice\.aspx/ig.test(text)) {
+                            text = text.replace(/&lt;a.+&lt;\/a&gt;/ig, '&lt;a href="javascript:void(0)" class="lnk" id="infoNotice_' + data[i].ID + '"&gt;点击&lt;a/&gt;');
+                        }
+//                        if ($.inArray(data[i].Module, bonus) &lt; 0) {
+//                            if (data[i].Module != 'RZRQAdditional') {
+//                                $.messager.show({
+//                                    title: data[i].Title,
+//                                    msg: text,
+//                                    timeout: 0,
+//                                    showType: 'slide'
+//                                });
+//                            } else {
+//                                RZRQAdditionalNum++;
+//                            }
+//                        } else {
+//                            bonusNum++;
+//                        }
+                        if ($.inArray(data[i].Module, shares) &gt;= 0 || $.inArray(data[i].Module, bonus) &gt;= 0) {
+                            $.messager.show({
+                                    title: data[i].Title,
+                                    msg: text,
+                                    timeout: 0,
+                                    showType: 'slide'
+                                });
+                             if($.inArray(data[i].Module, shares) &gt;= 0 ) {
+                                sharesNum++;
+                             } else {
+                                allNum++;
+                                switch(data[i].Module)
+                                {
+                                    case "Bonus19":
+                                        BondDividendNum++;
+                                        break;
+                                    case "Bonus20":
+                                        FundResolutionNum++;
+                                        break;
+                                          case "Bonus21":
+                                        SOExerciseNoticeNum++;
+                                        break;
+                                          case "Bonus22":
+                                        ExercisetipsNum++;
+                                        break;
+                                        default:
+                                        bonusNum++;
+                                        break;
+                                }
+                     
+                             }
+                        } else {
+                             if (data[i].Module != 'RZRQAdditional') {
+                                $.messager.show({
+                                    title: data[i].Title,
+                                    msg: text,
+                                    timeout: 0,
+                                    showType: 'slide'
+                                });
+                            } else {
+                                RZRQAdditionalNum++;
+                            }
+                        }
+                        $('#messager_' + data[i].ID).click(function () {
+                            //触发违规记录导航点击
+                            $('label[id="vslide-title-trade"].cls', $('#nav-menu-box')).click();
+                            $('a[id="lnk-to-weigui"]', $('#nav-menu-box')).click();
+                        });
+                        $('#infoNotice_' + data[i].ID).click(function () {
+                            //触发信息提示导航点击
+                            $('label[id="vslide-title-infoCenter"].cls', $('#nav-menu-box')).click();
+                            $('a[id="lnk-to-infoNotice"]', $('#nav-menu-box')).click();
+                        });
+                    }
+                    if (allNum &gt; 0) {  
+                        var strMSG ="";
+                        var tipHeight =80;                        
+                          if(bonusNum&gt;0)
+                          {
+                            strMSG+= '你有' + bonusNum + '个分红信息。&lt;a class="a_bonus"  href="javascript:void(0)" class="lnk"&gt;点击&lt;/a&gt; 查看信息列表...&lt;p/&gt;'
+                            tipHeight+=30;
+                          }
+                           if(BondDividendNum&gt;0)
+                          {
+                            strMSG+= '你有' + BondDividendNum + '个债权派息信息。&lt;a class="a_bonus"  href="javascript:void(0)" class="lnk"&gt;点击&lt;/a&gt; 查看信息列表...&lt;p/&gt;'
+                              tipHeight+=30;
+                          }
+                           if(FundResolutionNum&gt;0)
+                          {
+                            strMSG+= '你有' + FundResolutionNum + '个基金拆合股信息。&lt;a class="a_bonus"  href="javascript:void(0)" class="lnk"&gt;点击&lt;/a&gt; 查看信息列表...&lt;p/&gt;'
+                            tipHeight+=30;
+                          }
+                           if(SOExerciseNoticeNum&gt;0)
+                          {
+                            strMSG+= '你有' + SOExerciseNoticeNum + '个到期行权提醒信息。&lt;a class="a_bonus"  href="javascript:void(0)" class="lnk"&gt;点击&lt;/a&gt; 查看信息列表...&lt;p/&gt;'
+                            tipHeight+=30;
+                          }
+                           if(ExercisetipsNum&gt;0)
+                          {
+                            strMSG+= '你有' + ExercisetipsNum + '个行权提示信息。&lt;a class="a_bonus" href="javascript:void(0)" class="lnk"&gt;点击&lt;/a&gt; 查看信息列表...&lt;p/&gt;'
+                            tipHeight+=30;
+                          }                           
+                        $.messager.show({
+                            title: '提示信息',
+                            msg: strMSG,
+                            timeout: 0,
+                            showType: 'slide',
+                            height:tipHeight
+                        });
+                        $('.a_bonus').click(function () {
+                            //触发信息提示导航点击
+                            $('label[id="vslide-title-infoCenter"].cls', $('#nav-menu-box')).click();
+                            $('a[id="lnk-to-infoNotice"]', $('#nav-menu-box')).click();
+                        });
+                    }
+                    if (RZRQAdditionalNum &gt; 0) {
+                        $.messager.show({
+                            title: '融资融券追保',
+                            msg: '你有' + RZRQAdditionalNum + '个融资融券追保信息。&lt;a id="a_RZRQAdditional" href="javascript:void(0)" class="lnk"&gt;点击&lt;/a&gt; 查看信息列表...',
+                            timeout: 0,
+                            showType: 'slide'
+                        });
+                        $('#a_RZRQAdditional').click(function () {
+                            //触发信息提示导航点击
+                            $('label[id="vslide-title-infoCenter"].cls', $('#nav-menu-box')).click();
+                            $('a[id="lnk-to-infoNotice"]', $('#nav-menu-box')).click();
+                        });
+                    }
+                    if(sharesNum &gt; 0)
+                    {
+                        $.messager.show({
+                            title:'配股信息',
+                            msg:'你有'+ sharesNum+'个配股提示信息。&lt;a id="a_shares" href="javascript:void(0)" class="lnk"&gt;点击&lt;/a&gt; 查看信息列表...',
+                            timeout:0,
+                            showType:'slide'
+                        });
+                         $('#a_shares').click(function () {
+                            //触发信息提示导航点击
+                            $('label[id="vslide-title-infoCenter"].cls', $('#nav-menu-box')).click();
+                            $('a[id="lnk-to-infoNotice"]', $('#nav-menu-box')).click();
+                        });
+                    }
+                },
+                'json');
+            }
+            setTimeout(CheckMessager, 1000 * 3);    //第一次加载延迟3秒钟
+
+                        
+            /***********************************/
+            //股票资讯搜索框
+            var infomationBoxTimer = setTimeout(function(){
+                $('#infomationBox').hide(500);
+            },3000);    //第一次初始化后三秒后自动关闭资讯框，防止对内容进行长时间遮挡。
+            $('#openInfomation').click(function(){
+                window.clearTimeout(infomationBoxTimer);    //关闭计时器
+                $('#infomationBox').toggle();
+            }); //展示或打开资讯搜索框
+            $('#btnGetInfomation').click(function(){
+                window.open(marketInfomationUrl + $('#txtInfomationCode').val());
+            }); //查询资讯信息
+        });
+
+      
+
+        //是否显示比一比窗口
+        function ShowCompareBox() {
+            $(".compare ul li").remove();
+            $(".compare").show();
+        }
+        //点击比较按钮处理
+        function ClickCompareHandler(value, name, type, searchDate) {
+            if ($(".compare-top").attr("type") &amp;&amp; $(".compare-top").attr("type") != type) {
+                $(".compare ul li").remove();
+            }
+            var isExists = false;
+            var total = 1;
+            $(".compare .man").each(function () {
+                if ($(this).attr("value") == value) {
+                    $.messager.alert('提示信息', name + "已选择", 'info');
+                    isExists = true;
+                }
+                else {
+                    total += 1;
+                }
+            });
+            if (total &gt; 3) {
+                alert("最多只能有3个参加比较！");
+                return;
+            }
+            if (!isExists) {
+                if (name.length &gt; 14) {
+                    $(".compare ul").append(" &lt;li class='man' title='点击删除" + name + "' value='" + value + "'&gt;" + name.substring(0, 14) + "...&lt;/li&gt;");
+                } else {
+                    $(".compare ul").append(" &lt;li class='man' title='点击删除" + name + "' value='" + value + "'&gt;" + name + "&lt;/li&gt;");
+                }
+            }
+
+            $(".compare-top").attr("type", type).attr("date", searchDate);
+
+            $(".compare ul li").click(function () {
+                $(this).remove();
+            });
+        }
+
+        //下单成功后回调事件
+        function onDoOrderSuccess() {
+            //关闭窗口
+            $('#doOrderPanel').window('close', true);
+        }
+
+        //数据导出共用方法
+        function DataExportFunc(url) {
+            $("#export-iframe").attr("src", url);
+        }
+    </script>
+
+    <style type="text/css">
+        #nameCodeInfos a
+        {
+            line-height: 20px;
+            padding: 0px 5px 0px 5px;
+            color: #000;
+            display: block;
+            cursor: pointer;
+        }
+        #nameCodeInfos a:hover
+        {
+            background-color: #fbec88;
+        }
+        #footer {
+            display:none;
+        }
+    </style>
+<script src="//sgoutong.baidu.com/embed/1539855883/asset/embed/pc_nb.js" charset="UTF-8"></script><link rel="stylesheet" type="text/css" href="//sgoutong.baidu.com/embed/1539855883/asset/embed/css/pc/main.css">
+<script type="text/javascript" src="//p.qiao.baidu.com/cps2/site/poll?cb=jsonp_bridge_1540179134759_6811289232995679&amp;l=1&amp;v=154017912654247905&amp;s=11542697&amp;e=10905431&amp;dev=0&amp;auth=%7B%22anonym%22%3A0%2C%22key%22%3A%22970200400843774823luov7690433737%22%2C%22sn%22%3A%22741347635%22%2C%22id%22%3A%22154017912654247905%22%2C%22from%22%3A4%2C%22token%22%3A%22bridge%22%7D&amp;_time=1540179134759" id="id_jsonp_bridge_1540179134759_6811289232995679" charset="utf-8"></script>
+</head>
+<body>
+    <!--请勿随意去除mainContainer，用于清除运行时生成的多余Html代码-->
+    <div id="mainContainer" style="padding-bottom: 20px;">
+        <form method="post" action="./MatchIndex.aspx?TraderID=463925" id="aspnetForm">
+<div class="aspNetHidden">
+<input type="hidden" name="__VIEWSTATE" id="__VIEWSTATE" value="/wEPDwUJOTE4OTY2Nzc2ZGQ=">
+</div>
+
+        
+<script type="text/javascript" language="javascript">
+    $(function () {
+        //管理端超管端退出登录
+        $('#logout').click(function () {
+            $.post('/Handlers/Default/Common/AdminIdentityHandler.ashx/?method=Logout',
+            {},
+            function (data) {
+                try {
+                    if (data.Success) {
+                        if (data.Type == '1') {
+                            window.location.href = data.url;
+                        } else {
+                            if (data.Type == '0') {
+                                window.location.href = '/Mi/AdminLogin.aspx';
+                            } else {
+                                window.location.href = data.url;
+                            }
+                        }
+                    }
+                } catch (e) {
+                    window.location.href = window.location.href;
+                }
+            },
+            'json');
+        });
+        //竞赛端返回首页
+        $('#returnHomePage').click(function () {
+            $.post('/Handlers/HomePagesHandler.ashx/?method=GetVisitHomeUrl',
+            {},
+            function (data) {
+                window.location.href = data.url;
+            },
+            'json');
+        });
+
+
+        /*           每30秒获取一次注册人数、在线人数、当前时间信息 begin    */
+        var initdata = function () {
+            $.post('/Handlers/Default/Common/IdentityHandler.ashx/?method=GetInitData', {}, function (data) {
+                if (data) {
+                    $("#lblUserNum").html("注册人数：" + data.UserNum);
+                    $("#lblUserOnline").html("在线人数：" + data.UserOnline);
+                    $("#lblNowDate").html(data.NowDate);
+                    $("#lblNowTime").html(data.NowTime);
+                }
+            }, "json");
+        };
+        initdata();
+        setInterval(initdata, 60000);
+        /*           每60秒获取一次注册人数、在线人数、当前时间信息 end    */
+
+        var customerlogoUrl = '/Skins/Default/images/logo.png';
+        $('#header div.site').css("background", "url('" + customerlogoUrl + "') no-repeat scroll 0px 0px/220px 55px rgba(0, 0, 0, 0)");
+        $('#iquantLoginimg').click(function () {
+            //            window.location.href = window.location.href;
+            if ("/index.aspx" == "/Index.aspx") { 
+                return;
+            }
+            window.location.href = '/index.aspx';
+        });
+        //function startWH(obj, target1, target2) {
+        //    clearInterval(obj.timer);
+        //    obj.timer = setInterval(function () {
+        //        if (obj.offsetWidth == target1 &amp;&amp; obj.offsetHeight == target2) {
+        //            clearInterval(obj.timer);
+        //        } else {
+        //            var speed1, speed2;
+        //            speed1 = (target1 - obj.offsetWidth) / 10;
+        //            speed1 = speed1 &gt; 0 ? Math.ceil(speed1) : Math.floor(speed1);
+        //            speed2 = (target2 - obj.offsetHeight) / 10;
+        //            speed2 = speed2 &gt; 0 ? Math.ceil(speed2) : Math.floor(speed2);
+        //            obj.style.width = obj.offsetWidth + speed1 + "px";
+        //            obj.style.height = obj.offsetHeight + speed2 + "px";
+        //        }
+        //    }, 16);
+        //}
+        //$('#qqBtn').mouseover(function () {
+        //    startWH(this, 100, 38);
+        //});
+        //$('#qqBtn').mouseout(function () {
+        //    startWH(this, 38, 38);
+        //});
+        $('#qqBtn').click(function () {
+            this.href = "http://p.qiao.baidu.com/cps/chat?siteId=11542697&amp;userId=10905431";
+        });
+    });
+</script>
+
+<script>
+    var _hmt = _hmt || [];
+    (function () {
+        var hm = document.createElement("script");
+        hm.src = "https://hm.baidu.com/hm.js?be35c7b4de185a28962bdade5f99fa90";
+        var s = document.getElementsByTagName("script")[0];
+        s.parentNode.insertBefore(hm, s);
+    })();
+</script>
+
+<style>
+        /*QQ客服 */
+        .qq{
+          position: fixed;
+          right: 0;      
+          top:154px;      
+          z-index: 10000;
+          display: block;
+          width: 100px;
+          overflow: hidden;
+          height: 38px;      
+          background:#297ACC url(/Skins/home/img/home/13.png) -1px -2px no-repeat;           
+          border-radius:4px;
+          -moz-border-radius:4px;
+          cursor: pointer;     
+          font-size: 12px;
+          color: #FFF;
+          line-height: 38px;
+        }
+        a.qq:link, a.qq:visited, a.qq:hover, a.qq:active {
+          text-decoration: none;
+        }
+        .qq span{
+          display: block;
+          text-indent:38px;
+          color: #fff;
+        }
+    #header {      
+        min-width:1200px;
+    }
+</style>
+<div id="header">
+    <div class="site" style='background: url("/Skins/Default/images/logo.png") 0px 0px / 220px 55px no-repeat scroll rgba(0, 0, 0, 0);'>
+        <table cellpadding="0" cellspacing="0">
+            <tbody>
+<tr>
+                <td class="td1" id="iquantLoginimg">
+                </td>
+                <td class="td2">
+                    <div class="tddiv">
+                        <label>
+                            <b class="i-house"></b><span id="lblUserNum">注册人数：362</span></label>
+                        <label>
+                            <b class="i-man"></b><span id="lblUserOnline">在线人数：289</span></label>
+                        <label>
+                            <b class="i-hour"></b><span id="lblNowDate">2018-10-22</span>
+                        </label>
+                        <label>
+                            <span id="lblNowTime">11:32</span>
+                        </label>
+                        <!--已经登录的用户信息框-->
+                        <label id="headerLoginInfoBox">
+                        
+                            当前用户：<span class="currentUser">
+                                jr0120180050</span>
+                            <a style="margin-left:10px" id="returnHomePage" href="javascript:void(0);">安全退出</a>
+                        
+                    </label>
+</div>
+                </td>
+            </tr>
+        </tbody>
+</table>
+    </div>
+    <a class="qq" id="qqBtn" target="_blank">
+        <span style="line-height: 38px;">在线客服</span>
+    </a>
+    
+    <div class="logo-bg">
+        <div class="logo">
+        </div>
+    </div>
+    
+</div>
+
+
+        
+    <div id="mainbody" style="position: relative;">
+        <table class="none">
+            <tbody>
+<tr>
+                <td class="none layout-leftmenu">
+                    <div id="nav-menu-box">
+                        <div class="header-title-bgl">
+                            <div class="header-title-bgr">
+                                栏目导航
+                            </div>
+                        </div>
+                        <label class="vslide-title cls">
+                            <label class="right">
+                                快捷方式</label></label>
+                        <div class="vslide-content" style="display: none;">
+                            <a class="" href="/Pages/Default/Query/AssetsGeneralNew1.aspx">
+                                竞赛概况</a> <a id="mytest" href="/Pages/Default/Home/PreMatchIndex.aspx" target="_self">退出竞赛</a>
+                        </div>
+                        
+                        <label class="vslide-title cls">
+                            <label class="right">
+                                行情中心</label></label>
+                        <div class="vslide-content" style="display: none;">
+                            <a href="/Pages/Default/StockMarket/PersonalGroups.aspx">自选</a>
+                            
+                            <a href="/Pages/Default/StockMarket/Recommend.aspx">推荐池</a>
+                            
+                            <a href="/Pages/Default/StockMarket/Billboard.aspx">风云榜</a>
+                            
+                            <a href="/Pages/Default/StockMarket/XH.aspx?exchange=2">上海证券</a>
+                            
+                            <a href="/Pages/Default/StockMarket/XH.aspx?exchange=1">深圳证券</a>
+                            
+                            <a href="/Pages/Default/StockMarket/HK.aspx">香港证券</a>
+                            
+                            <a href="/Pages/Default/StockMarket/GZFutures.aspx">金融期货</a>
+                            
+                            <a href="/Pages/Default/StockMarket/SPFutures.aspx?exchange=6">
+                                大连期货</a>
+                            
+                            <a href="/Pages/Default/StockMarket/SPFutures.aspx?exchange=7">
+                                郑州期货</a>
+                            
+                            <a href="/Pages/Default/StockMarket/SPFutures.aspx?exchange=8">
+                                上海期货</a>
+                            
+                            <a href="/Pages/Default/StockMarket/StockOption.aspx">期权</a>
+                            
+                            <a href="/Pages/Default/StockMarket/Star.aspx">明星商品</a>
+                            
+                            <a href="/Pages/Default/StockMarket/MarketWarning.aspx">预警</a>
+                            
+                            
+                        </div>
+                        <label id="vslide-title-trade" class="vslide-title exp">
+                            <label class="right">
+                                交易中心</label></label>
+                        <div class="vslide-content" style="display: block;">
+                            <a href="/Pages/Default/Trade/DoOrders.aspx">下单</a> <a href="/Pages/Default/Query/HoldDetails.aspx" class="current">
+                                持仓明细</a> <a href="/Pages/Default/Query/TradesQuery.aspx">交易查询</a>
+                            
+                            <a href="/Pages/Default/BankFinance/TransferAccounts.aspx">
+                                银证转账</a>
+                            <a id="lnk-to-weigui" href="/Pages/Default/Query/ViolationRecord.aspx">
+                                    违规记录</a> <a href="/Pages/Default/Query/OperateEvaluate.aspx">
+                                        操作点评</a>
+                        </div>
+                        
+                        <!--首页排行榜点击需要查询此ID-->
+                        <label id="vslide-title-ranking" class="vslide-title cls">
+                            <label class="right">
+                                排行榜</label></label>
+                        <div class="vslide-content rankings-center" style="display: none;">
+                            <!--首页排行榜点击需要查询此ID-->
+                            <a id="lnk-personal-ranking" href="/Pages/Default/Rankings/RankingsMenu.aspx">
+                                个人排行榜</a>
+                            
+                        </div>
+                        
+                        <label class="vslide-title cls">
+                            <label class="right">
+                                投组分析</label></label>
+                        <div class="vslide-content" style="display: none;">
+                            <a href="/Pages/Default/Analysis/AssetSurveyNew.aspx">资产概况</a>
+                            <a href="/Pages/Default/Analysis/HistoryPosition.aspx">历史持仓</a>
+                            <a href="/Pages/Default/Analysis/BreedInvestmentProfitAndLoss.aspx">
+                                投资损益</a> <a href="/Pages/Default/Analysis/Industry.aspx">行业收益</a>
+                            <a href="/Pages/Default/Analysis/RiskManagement.aspx">风险管理</a>
+                            <a href="/Pages/Mi/Analysis/TranAnalysis.aspx">交易分析</a>
+                            <a href="/Pages/Default/Analysis/DataExports.aspx">数据导出</a>
+                            <a href="/Pages/Default/Analysis/LookUpMonthComment.aspx">报告点评</a>
+                        </div>
+                        <label id="vslide-title-infoCenter" class="vslide-title cls vslide-title-last">
+                            <label class="right">
+                                资讯中心</label></label>
+                        <div class="vslide-content" style="display: none;">
+                            <a href="/Pages/Default/InfoCenter/MatchNotice.aspx">竞赛公告</a>
+                            <a href="/Pages/Default/InfoCenter/SystemNotice.aspx">系统公告</a>
+                            <a id="lnk-to-infoNotice" href="/Pages/Default/InfoCenter/InfoNotice.aspx">
+                                信息提示</a> <a href="/Pages/Default/InfoCenter/MatchRule.aspx">
+                                    竞赛规则</a> <a href="/Pages/Default/InfoCenter/HoldLimit.aspx">
+                                        持仓限制</a> <a href="/Help/SystemNotes.pdf" target="_blank">指标释义</a>
+                            <a href="/Help/Contestant.rar" target="_blank">操作指南</a>
+                        </div>
+                        
+                    </div>
+                </td>
+                <td class="none">
+                    <div id="link-post" style="position:relative;">
+                        <label class="post">
+                            您的位置：</label>
+                        首页 &gt;
+                        金融模拟1班
+                        <label id="link-current">&gt; 
+                            
+                                交易中心 &gt; 
+                                持仓明细</label>
+                        <a id="backtoindex" class="img-link-1" style="position:absolute;top:2px;right:0px;background-color:#427CC6;color:#fff;text-decoration:none;" href="/Pages/Default/Home/PreMatchIndex.aspx" target="_self">返回竞赛列表</a>
+                    </div>
+                    <div class="panel" style="display: block; width: auto;"><div id="frame" href="/Pages/Default/Query/AssetsGeneralNew1.aspx" title="" class="panel-body panel-body-noheader panel-body-noborder" style="width: 926px; height: auto;">
+
+
+
+<title>
+	VE竞赛管理系统-竞赛端
+</title>
+    <style type="text/css">
+        #holdDetails_frame a.current
+        {
+            font-weight:bold;
+            color:#f00;
+            text-decoration:none;
+        }
+    </style>
+    
+
+
+    <form method="post" action="./HoldDetails.aspx?_=1540179135348" id="form1">
+<div class="aspNetHidden">
+<input type="hidden" name="__VIEWSTATE" id="__VIEWSTATE" value="/wEPDwULLTExNTQwMzMxNDJkZA==">
+</div>
+
+    <div id="holdDetails_frame">
+        <div class="condition-panel">
+            <div class="row">
+                <div id="tradeRule">品种：<a href="javascript:;" class="lnk" rel="-1">沪深证券</a>（<a href="javascript:;" class="lnk" rel="1">A股</a> <a href="javascript:;" class="lnk" rel="2">上海B股</a> <a href="javascript:;" class="lnk" rel="3">深圳B股</a> <a href="javascript:;" class="lnk" rel="4">基金</a> <a href="javascript:;" class="lnk" rel="5">债券</a> <a href="javascript:;" class="lnk" rel="6">权证</a>） <a href="javascript:;" class="lnk" rel="-2">香港证券</a>（<a href="javascript:;" class="lnk" rel="7">港股</a>） <a href="javascript:;" class="lnk current" rel="8">金融期货</a> <a href="javascript:;" class="lnk" rel="9">商品期货</a> <a href="javascript:;" class="lnk" rel="13">个股ETF期权</a> </div>
+            </div>
+        </div>
+        <div class="panel" style="display: block; width: auto;"><div id="holdDetailsframe" title="" class="panel-body panel-body-noheader panel-body-noborder" style="width: 926px; height: auto;">
+
+
+
+<title>
+	VE竞赛管理系统-竞赛端
+</title>
+    
+
+
+    <form method="post" action="./HoldDetails.aspx?_=1540179138944" id="form1">
+<div class="aspNetHidden">
+<input type="hidden" name="__VIEWSTATE" id="__VIEWSTATE" value="/wEPDwULLTE2MTkzODM5MzhkZA==">
+</div>
+
+    <div id="gzFutures_HoldDetails_frame">
+        <div class="panel" style="display: block; width: auto;">
+<div class="panel-header" style="width: 914px;">
+<div class="panel-title">金融期货账户</div>
+<div class="panel-tool"></div>
+</div>
+<div class="easyui-panel panel-body" title="" style="width: 924px; height: auto;">
+            <div id="SecuritiesAccount"><table class="form"><tbody>
+<tr>
+<td class="left bc1" style="width:100px;">账户资产</td>
+<td style="width:100px;">402,788.59</td>
+<td class="left bc1" style="width:100px;">持仓盯市盈亏</td>
+<td style="width:100px;">-1,140.00</td>
+<td class="left bc1" style="width:100px;">累计平仓盈亏</td>
+<td>2,788.59</td>
+</tr>
+<tr>
+<td class="left bc1">期初权益</td>
+<td>0.00</td>
+<td class="left bc1">持仓浮动盈亏</td>
+<td>-1,140.00</td>
+<td class="left bc1">累计交易费</td>
+<td>91.42</td>
+</tr>
+<tr>
+<td class="left bc1">可用资金</td>
+<td>97,880.59</td>
+<td class="left bc1">今平盯市盈亏</td>
+<td>0.00</td>
+<td class="left bc1">当日交易费</td>
+<td>91.42</td>
+</tr>
+<tr>
+<td class="left bc1">冻结资金</td>
+<td>0.00</td>
+<td class="left bc1">今平浮动盈亏</td>
+<td>0.00</td>
+<td class="left bc1">资产比例</td>
+<td>40.17%</td>
+</tr>
+<tr>
+<td class="left bc1">持仓保证金</td>
+<td>304,908.00</td>
+<td> </td>
+<td> </td>
+<td class="left bc1">资金风险度</td>
+<td>75.70%</td>
+</tr>
+</tbody></table></div>
+        </div>
+</div>
+        <p>
+        </p>
+        <div class="panel" style="display: block; width: auto;">
+<div class="panel-header panel-header-noborder" style="width: 916px;">
+<div class="panel-title">持仓明细</div>
+<div class="panel-tool"></div>
+</div>
+<div class="easyui-panel panel-body panel-body-noborder" title="" border="false" style="width: 926px; height: auto;">
+            <div class="panel datagrid" style="width: auto;"><div class="datagrid-wrap panel-body panel-body-noheader" title="" style="width: 924px; height: auto;">
+<div class="datagrid-toolbar"><a href="javascript:void(0)" class="l-btn l-btn-plain" style="float: left;"><span class="l-btn-left"><span class="l-btn-text icon-excel" style="padding-left: 20px;">导出</span></span></a></div>
+<div class="datagrid-view" style="width: 924px; height: 113px;">
+<div class="datagrid-view1" style="width: 162px;">
+<div class="datagrid-header" style="width: 162px; height: 32px;"><div class="datagrid-header-inner"><table border="0" cellspacing="0" cellpadding="0" style="height: 32px;"><tbody><tr>
+<td field="Code"><div class="datagrid-cell" style="width: 72px; text-align: left;">
+<span>代码</span><span class="datagrid-sort-icon"> </span>
+</div></td>
+<td field="Name"><div class="datagrid-cell" style="width: 72px; text-align: left;">
+<span>合约名称</span><span class="datagrid-sort-icon"> </span>
+</div></td>
+</tr></tbody></table></div></div>
+<div class="datagrid-body" style="width: 162px; height: 80px;"><div class="datagrid-body-inner"><table cellspacing="0" cellpadding="0" border="0"><tbody>
+<tr datagrid-row-index="0" style="height: 31px;">
+<td field="Code"><div style="width:72px;text-align:left;" class="datagrid-cell ">IH1812</div></td>
+<td field="Name"><div style="width:72px;text-align:left;" class="datagrid-cell ">上证50指数1812</div></td>
+</tr>
+<tr datagrid-row-index="1" class="datagrid-row-alt" style="height: 31px;">
+<td field="Code"><div style="width:72px;text-align:left;" class="datagrid-cell ">IH1812</div></td>
+<td field="Name"><div style="width:72px;text-align:left;" class="datagrid-cell ">上证50指数1812</div></td>
+</tr>
+</tbody></table></div></div>
+<div class="datagrid-footer" style="width: 162px;"><div class="datagrid-footer-inner" style="display: none;"></div></div>
+</div>
+<div class="datagrid-view2" style="width: 762px; left: 162px;">
+<div class="datagrid-header" style="width: 762px; height: 32px;"><div class="datagrid-header-inner"><table border="0" cellspacing="0" cellpadding="0" style="height: 32px;"><tbody><tr>
+<td field="Direction"><div class="datagrid-cell" style="width: 32px; text-align: left;">
+<span>买卖</span><span class="datagrid-sort-icon"> </span>
+</div></td>
+<td field="TodayOpenAvailableAmount"><div class="datagrid-cell" style="width: 72px; text-align: left;">
+<span>今开可用</span><span class="datagrid-sort-icon"> </span>
+</div></td>
+<td field="HistoryOpenAvailableAmount"><div class="datagrid-cell" style="width: 72px; text-align: left;">
+<span>历史开可用</span><span class="datagrid-sort-icon"> </span>
+</div></td>
+<td field="AvailableAmount"><div class="datagrid-cell" style="width: 72px; text-align: left;">
+<span>总可用</span><span class="datagrid-sort-icon"> </span>
+</div></td>
+<td field="FrozenAmount"><div class="datagrid-cell" style="width: 72px; text-align: left;">
+<span>冻结数</span><span class="datagrid-sort-icon"> </span>
+</div></td>
+<td field="HoldAmount"><div class="datagrid-cell" style="width: 72px; text-align: left;">
+<span>总持仓</span><span class="datagrid-sort-icon"> </span>
+</div></td>
+<td field="OpenAvgPrice"><div class="datagrid-cell" style="width: 92px; text-align: left;">
+<span>开仓均价</span><span class="datagrid-sort-icon"> </span>
+</div></td>
+<td field="MarginAmount"><div class="datagrid-cell" style="width: 92px; text-align: left;">
+<span>持仓保证金</span><span class="datagrid-sort-icon"> </span>
+</div></td>
+<td field="DSProfitLoss"><div class="datagrid-cell" style="width: 92px; text-align: left;">
+<span>盯市盈亏</span><span class="datagrid-sort-icon"> </span>
+</div></td>
+<td field="FloatProfitLoss"><div class="datagrid-cell" style="width: 92px; text-align: left;">
+<span>浮动盈亏</span><span class="datagrid-sort-icon"> </span>
+</div></td>
+<td field="Operate"><div class="datagrid-cell" style="width: 32px; text-align: left;">
+<span>操作</span><span class="datagrid-sort-icon"> </span>
+</div></td>
+</tr></tbody></table></div></div>
+<div class="datagrid-body" style="width: 762px; height: 80px;"><table cellspacing="0" cellpadding="0" border="0"><tbody>
+<tr datagrid-row-index="0" style="height: 31px;">
+<td field="Direction"><div style="width:32px;text-align:left;" class="datagrid-cell ">买</div></td>
+<td field="TodayOpenAvailableAmount"><div style="width:72px;text-align:left;" class="datagrid-cell ">1</div></td>
+<td field="HistoryOpenAvailableAmount"><div style="width:72px;text-align:left;" class="datagrid-cell ">0</div></td>
+<td field="AvailableAmount"><div style="width:72px;text-align:left;" class="datagrid-cell ">1</div></td>
+<td field="FrozenAmount"><div style="width:72px;text-align:left;" class="datagrid-cell ">0</div></td>
+<td field="HoldAmount"><div style="width:72px;text-align:left;" class="datagrid-cell ">1</div></td>
+<td field="OpenAvgPrice"><div style="width:92px;text-align:left;" class="datagrid-cell ">2,542.800</div></td>
+<td field="MarginAmount"><div style="width:92px;text-align:left;" class="datagrid-cell ">152,568.000</div></td>
+<td field="DSProfitLoss"><div style="width:92px;text-align:left;" class="datagrid-cell "><span class="color-up">1500.000</span></div></td>
+<td field="FloatProfitLoss"><div style="width:92px;text-align:left;" class="datagrid-cell "><span class="color-up">1500.000</span></div></td>
+<td field="Operate"><div style="width:32px;text-align:left;" class="datagrid-cell "><a href="javascript:;" rel='{"code":"IH1812","direction":"买"}' class="lnk a_gzFutures_Sell">平</a></div></td>
+</tr>
+<tr datagrid-row-index="1" class="datagrid-row-alt" style="height: 31px;">
+<td field="Direction"><div style="width:32px;text-align:left;" class="datagrid-cell ">卖</div></td>
+<td field="TodayOpenAvailableAmount"><div style="width:72px;text-align:left;" class="datagrid-cell ">1</div></td>
+<td field="HistoryOpenAvailableAmount"><div style="width:72px;text-align:left;" class="datagrid-cell ">0</div></td>
+<td field="AvailableAmount"><div style="width:72px;text-align:left;" class="datagrid-cell ">1</div></td>
+<td field="FrozenAmount"><div style="width:72px;text-align:left;" class="datagrid-cell ">0</div></td>
+<td field="HoldAmount"><div style="width:72px;text-align:left;" class="datagrid-cell ">1</div></td>
+<td field="OpenAvgPrice"><div style="width:92px;text-align:left;" class="datagrid-cell ">2,539.000</div></td>
+<td field="MarginAmount"><div style="width:92px;text-align:left;" class="datagrid-cell ">152,340.000</div></td>
+<td field="DSProfitLoss"><div style="width:92px;text-align:left;" class="datagrid-cell "><span class="color-down">-2640.000</span></div></td>
+<td field="FloatProfitLoss"><div style="width:92px;text-align:left;" class="datagrid-cell "><span class="color-down">-2640.000</span></div></td>
+<td field="Operate"><div style="width:32px;text-align:left;" class="datagrid-cell "><a href="javascript:;" rel='{"code":"IH1812","direction":"卖"}' class="lnk a_gzFutures_Sell">平</a></div></td>
+</tr>
+</tbody></table></div>
+<div class="datagrid-footer" style="width: 762px;"><div class="datagrid-footer-inner" style="display: none;"></div></div>
+</div>
+<div class="datagrid-resize-proxy"></div>
+<div id="holdDetails" style="display: none;">
+            </div>
+</div>
+<div class="datagrid-pager pagination">
+<table cellspacing="0" cellpadding="0" border="0"><tbody><tr>
+<td><a href="javascript:void(0)" icon="pagination-first" class="l-btn l-btn-plain l-btn-disabled"><span class="l-btn-left"><span class="l-btn-text"><span class="l-btn-empty pagination-first"> </span></span></span></a></td>
+<td><a href="javascript:void(0)" icon="pagination-prev" class="l-btn l-btn-plain l-btn-disabled"><span class="l-btn-left"><span class="l-btn-text"><span class="l-btn-empty pagination-prev"> </span></span></span></a></td>
+<td><div class="pagination-btn-separator"></div></td>
+<td><span style="padding-left:6px;">第</span></td>
+<td><input class="pagination-num" type="text" value="1" size="2"></td>
+<td><span style="padding-right:6px;">共1页</span></td>
+<td><div class="pagination-btn-separator"></div></td>
+<td><a href="javascript:void(0)" icon="pagination-next" class="l-btn l-btn-plain l-btn-disabled"><span class="l-btn-left"><span class="l-btn-text"><span class="l-btn-empty pagination-next"> </span></span></span></a></td>
+<td><a href="javascript:void(0)" icon="pagination-last" class="l-btn l-btn-plain l-btn-disabled"><span class="l-btn-left"><span class="l-btn-text"><span class="l-btn-empty pagination-last"> </span></span></span></a></td>
+</tr></tbody></table>
+<div class="pagination-info">显示1到2,共2记录</div>
+<div style="clear:both;"></div>
+</div>
+</div></div>
+        </div>
+</div>
+        <div id="doOrderPanel">
+        </div>
+    </div>
+    
+</form>
+
+
+</div></div>
+    </div>
+    
+</form>
+
+
+</div></div>
+                </td>
+            </tr>
+        </tbody>
+</table>
+        <!--股票资讯搜索框-->
+        <table id="openInfomationBox" border="0" cellpadding="0" cellspacing="0" style="position: fixed;
+            top: 200px; width: auto; right: 0px; height: 80px;">
+            <tbody>
+<tr>
+                <td id="openInfomation" style="width: 12px; cursor: pointer; background-color: #3973C4;
+                    color: #fff; padding: 5px;" title="点击关闭/展开">
+                    股票资讯
+                </td>
+                <td id="infomationBox" style="background: rgb(240, 240, 240); border: 1px solid rgb(204, 204, 204); padding: 5px; display: none;">
+                    <input id="txtInfomationCode" type="text" value="" class="nameCode" market="xh" style="width: 100px;
+                        height: 18px;">
+                    <input id="btnGetInfomation" type="button" value="查询">
+                    <p style="color: #666; width: 170px;">
+                        注：支持A股、B股的资讯信息</p>
+                </td>
+            </tr>
+        </tbody>
+</table>
+        <script type="text/javascript" language="javascript">
+            //为保证IE6.0能正常使用此功能
+            $(function () {
+                try {
+                    var browser = navigator.appName
+                    var b_version = navigator.appVersion
+                    var version = b_version.split(";");
+                    var trim_Version = (version.length &gt; 1) ? version[1].replace(/[ ]/g, "") : "";  //version.length &gt; 1 为了在IE下不报错
+                    if (browser == "Microsoft Internet Explorer" &amp;&amp; trim_Version == "MSIE6.0") {
+                        $('#openInfomationBox').css('position', 'absolute');
+                        $('#openInfomationBox').css('top', '60px');
+                        $('#openInfomationBox').css('right', '-22px');
+                    }
+                } catch (e) {
+                }
+            });
+        </script>
+        <div class="compare" style="display: none;">
+            <div class="compare-top">
+            </div>
+            <h4>
+                对比栏</h4>
+            <ul>
+            </ul>
+            <p>
+                <input type="button" id="btn-compare" value="比一比"></p>
+            <p>
+                <a href="#">清空对比栏</a></p>
+            <div class="compare-bot">
+            </div>
+        </div>
+        <iframe id="export-iframe" src="" style="display: none;"></iframe>
+    </div>
+
+        
+<script language="javascript" defer>function pageLoad()
+                        {Sys.WebForms.PageRequestManager.getInstance().add_endRequest(onEndRequest);}
+                                function onEndRequest(sender, e){
+                                    if (e.get_error())
+                                    {   
+                                        e.set_errorHandled(true);     
+                                        if(window.ajaxmsg != 'yes')
+                                        {
+                                            //alert('系统发生异常,请稍后再试!');
+                                            window.ajaxmsg = 'yes';
+                                             var objWindow = window.dialogArguments;
+                                if (objWindow != undefined &amp;&amp; objWindow != null)
+                                {
+                                    //objWindow.parent.location='~/index.aspx';
+                                    //window.close();
+                                    window.location.href = window.location.href;
+                                }
+                                else if(window.opener != undefined &amp;&amp; window.opener != null)
+                                {
+                                    // window.opener.location='~/index.aspx';                                    
+                                    //window.close();
+                                    window.location.href = window.location.href;
+                                }
+                                else
+                                {
+                                    //window.location='~/index.aspx';
+                                    window.location.href = window.location.href;
+                                }
+                                
+                                        }               
+                                    }
+                                }try{parent.$('.comparebox').hide();}catch(err){}</script><input type="text" style="display:none;"><input type="text" style="display:none;">
+</form>
+      
+        
+<style>
+    #footer div {
+         color: #49648A;
+    }
+</style>
+<div id="footer">
+
+    <div style="text-align: center; line-height: 25px;">
+        本网站所提供的交易行情均为即时资讯，网站提供的资讯内容仅供参考。对于资料内容错误、更新延误或传输中断，本公司不负任何法律责任，特此申明。
+        <br>        
+        <span id="copyRightStatement">深圳国泰安教育技术股份有限公司 版权所有 <span style="font-family: Arial;">©</span> ShenZhen GTA Education Tech Ltd. All Right Reserved.<a href="http://www.miitbeian.gov.cn/" target="_blank"> 粤ICP备05065871号</a></span>
+        <script type="text/javascript">
+            var strhtml = '深圳国泰安教育技术股份有限公司 版权所有 &lt;span style="font-family: Arial;"&gt;&amp;copy;&lt;/span&gt; ShenZhen GTA Education Tech Ltd. All Right Reserved.';
+            $.post('/Handlers/Default/CommonQueryHandler.ashx?method=GetGTACompanyName', function (data) {
+                var chinesename = data.ChineseName;
+                var englishname = data.EnglishName;
+                strhtml = chinesename
+                    + ' 版权所有 &lt;span style="font-family: Arial;"&gt;&amp;copy;&lt;/span&gt; '
+                    + englishname
+                    + ' All Right Reserved.'
+                + '&lt;a href="http://www.miitbeian.gov.cn/" target="_blank"&gt; 粤ICP备05065871号&lt;/a&gt;';
+                $('#copyRightStatement').append(strhtml);
+            }, 'json');
+           
+        </script>
+    </div>
+</div>
+
+    </div>
+
+
+</body>
+</html>
+
+刚开盘
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+<title>
+	VE竞赛管理系统-竞赛端
+</title>
+<meta http-equiv="X-UA-Compatible" content="IE=9">
+    <link rel="shortcut icon" href="/Skins/default/images/favicon.ico">
+    
+    <script charset="utf-8" src="http://goutong.baidu.com/site/812/be35c7b4de185a28962bdade5f99fa90/b.js?siteId=11542697"></script><script src="https://hm.baidu.com/hm.js?be35c7b4de185a28962bdade5f99fa90"></script><script type="text/javascript" language="javascript" src="/JS/easyui/jquery-1.4.4.min.js"></script>
+    
+    <link href="/Skins/default/Framework.css" rel="stylesheet" type="text/css">
+    <link href="/Skins/default/Common.css" rel="stylesheet" type="text/css">
+    <link href="/Skins/default/easyui/themes/blue/easyui.css" rel="stylesheet" type="text/css">
+    <link href="/Skins/default/easyui/themes/icon.css" rel="stylesheet" type="text/css">
+    <script type="text/javascript" language="javascript" src="/Skins/easyui/jquery.easyui.min.js"></script>
+    <!--UI Reference-->
+    <script type="text/javascript" language="javascript" src="/Skins/easyui/jq.extends.js"></script>
+    <!---------------->
+    <script type="text/javascript" language="javascript" src="/JS/easyui/locale/easyui-lang-zh_CN.js"></script>
+    <!--个股资讯地址配置-->
+    <script type="text/javascript" language="javascript" src="/Pages/zixun_url.js"></script>
+    <script type="text/javascript" language="javascript">
+        $(function () {
+            $(":text.pagination-num").live('keydown', function () {
+                $("form").submit(function () {
+                    return false;
+                });
+            });
+        });
+        //
+        var loginName = $('#LeftTraderKeywords').val();
+        // 是否选择了模糊搜索中的数据
+        var isClickSearchTips = false;
+        function _rankSearchLoop(_box) {
+            return function () {
+                rankSearchLoop(_box);
+            }
+        }
+        var rankSearchLoop = function (box) {
+            //var box = $('.rankSearch, .szRankSearch, .personRankSearch');
+            if ($.trim(box.val()).length &gt;= 1) {
+                $.post('/Handlers/Default/Match/AdminMatchQueryHandler.ashx/?method=GetRankSearchData',
+                {
+                    Keywords: box.val(),
+                    rankType: box.attr('rankType'),
+                    groupID:$("#dplGroup").val()
+                },
+                function (data) {
+                    //复原标记位
+                    isClickSearchTips = false;
+                    //不存在DOM则新建
+                    //if ($('#nameCodeInfos').length == 0) {
+                        $('#nameCodeInfos').remove();
+                        $(document.body).append('&lt;div id="nameCodeInfos" style="position: absolute; z-index: 999999999; text-align: left;background-color: #fff; border: 1px #ccc solid; display: none; _width:250px; overflow:hidden;"&gt;&lt;/div&gt;');
+                        var infoLeft = box.offset().left;
+                        var infoTop = box.offset().top + box.height();
+                    //}
+                    if (data.length &gt; 0) {
+                        $('#nameCodeInfos').empty();
+                        // 只显示前10条
+                        for (var i = 0; i &lt; data.length &amp;&amp; i &lt; 10; i++) {
+                            if (Object.prototype.toString.call(data[i]).slice(8, -1) == "Object")
+                                $('#nameCodeInfos').append('&lt;a type="' + data[i].Type + '"&gt;' + data[i].Value + '&lt;/a&gt;');
+                            else
+                                $('#nameCodeInfos').append('&lt;a&gt;' + data[i] + '&lt;/a&gt;');
+                        }
+
+                        //if ($('iframe', '#nameCodeInfos').length == 0) {
+                        //    $('#nameCodeInfos').append('&lt;iframe style="_width:250px;_height:200px; top:0; left:0;position: absolute; z-index: -1; background-color:#fff;" frameborder="0"&gt;&lt;/iframe&gt;');
+                        //}
+                        $('#nameCodeInfos').offset({
+                            left: infoLeft,
+                            top: infoTop
+                        });
+                        //显示搜索面板
+                        $('#nameCodeInfos').show();
+                        //触发文本框事件
+                        $('.rankSearch, .szRankSearch, .personRankSearch').unbind('blur');
+                        $('.rankSearch, .szRankSearch, .personRankSearch').blur(function () {
+                            if ($('#nameCodeInfos') != undefined) {
+                                $('#nameCodeInfos').hide();
+                            }
+                        });
+                        $('#nameCodeInfos a').click(function () {
+                            var tempVal = box.val();
+                            if (box.val)
+                                box.val($(this).text().split('/')[0]);
+                            if (typeof ($(this).attr("type")) != "undefined") {//个人排行榜 会有这个属性值
+                                if ($("#searchType"))//可查人、班级、赛组
+                                    $("#searchType").val($(this).attr("type"));
+                            }
+                            $('#nameCodeInfos').hide();
+                            if (box.val() != tempVal) {
+                                box.change();
+                            }
+                            isClickSearchTips = true;
+                            ////box.change();   //自动提示框选择前会导致下单的change事件触发，因此主动在填充后调用一次。
+                        });
+                    } else {
+                        $('#nameCodeInfos').hide();
+                    }
+                },
+                'json');
+            } else {
+                $('#nameCodeInfos').hide();
+            }
+        };
+        var rankSearchImgUrl = '';
+        var rankSearchTime;
+        $('.rankSearch, .szRankSearch, .personRankSearch').live('focus', function () {
+            var box = $(this);
+            rankSearchImgUrl = box.css('background');
+            box.css('background', 'none');
+            rankSearchTime = setInterval(_rankSearchLoop(box), 1000);
+        });
+        $('.rankSearch, .szRankSearch, .personRankSearch').live('blur', function () {
+            clearInterval(rankSearchTime);
+            if ($(this).val() == '') {
+                $(this).css('background', rankSearchImgUrl);
+            }
+        });
+        //var searchTemp;
+        $('#nameCodeInfos').live({
+            mouseenter: function () {
+                //clearTimeout(searchTemp);
+                $('.rankSearch, .szRankSearch, .personRankSearch').unbind('blur');
+            },
+            mouseleave: function () {
+                //clearTimeout(searchTemp);
+                $('.rankSearch, .szRankSearch, .personRankSearch').blur(function () {
+                    if ($('#nameCodeInfos') != undefined) {
+                        $('#nameCodeInfos').hide();
+                    }
+                });
+            }
+        });
+        var PageObject; //页面对象
+        //系统级全局变量
+        var marketRefreshTimer; //行情刷新全局定时器，在行情刷新页面使用
+
+        //清理旧的内容
+        //easyui应用部分元素会被加载到页面末尾，因为加载新内容时需要移除，防止大量生成代码堆积。
+        function ClearBefore() {
+            try {
+                //销毁行情刷新计时器
+                if (marketRefreshTimer != undefined) {
+                    window.clearTimeout(marketRefreshTimer);
+                }
+                $('#mainContainer').nextAll().remove();
+            } catch (e) {
+            }
+        }
+        function _filter_staff_from_exist(_box) {
+            return function () {
+                filter_staff_from_exist(_box);
+            }
+        }
+        var filter_staff_from_exist = function (box) {
+            //var box = $('.nameCode');
+            if ($.trim(box.val()).length &gt;= 1) {
+                $.post('/Handlers/Default/CommonQueryHandler.ashx/?method=IndexCommodityList',
+                {
+                    nameCode: $.trim(box.val()),
+                    market: (box.attr('market') == undefined) ? '' : box.attr('market')
+                },
+                function (data) {
+                    //不存在DOM则新建
+                    //if ($('#nameCodeInfos').length == 0) {
+                        $('#nameCodeInfos').remove();
+                        $(document.body).append('&lt;div id="nameCodeInfos" style="position: absolute; z-index: 999999999; text-align: left;background-color: #fff; border: 1px #ccc solid; display: none; _width:250px; overflow:hidden;"&gt;&lt;/div&gt;');
+                        var infoLeft = box.offset().left;
+                        var infoTop = box.offset().top + box.height();
+                    //}
+                    if (data.length &gt; 0) {
+                        $('#nameCodeInfos').empty();
+                        for (var i = 0; i &lt; data.length; i++) {
+                            $('#nameCodeInfos').append('&lt;a&gt;' + data[i] + '&lt;/a&gt;');
+                        }
+                        //显示搜索面板
+                        
+                        //if ($('iframe', '#nameCodeInfos').length == 0) {
+                        //    $('#nameCodeInfos').append('&lt;iframe style="_width:250px;_height:200px; top:0; left:0;position: absolute; z-index: -1; background-color:#fff;" frameborder="0"&gt;&lt;/iframe&gt;');
+                        //}
+                        //console.log(box.offset().left + ',' + box.offset().top);
+                        $('#nameCodeInfos').offset({
+                            left: infoLeft,
+                            top: infoTop
+                        });
+                        $('#nameCodeInfos').show();
+                        //触发文本框事件
+                        $('.nameCode').unbind('blur');
+                        $('.nameCode').blur(function () {
+                            if ($('#nameCodeInfos') != undefined) {
+                                $('#nameCodeInfos').hide();
+                            }
+                        });
+                        $('#nameCodeInfos a').click(function () {
+                            var tempVal = box.val();
+                            if (box.val)
+                                box.val($(this).text().split('/')[0]);
+                            $('#nameCodeInfos').hide();
+                            if (box.val() != tempVal) {
+                              box.change();
+                            }
+                            //box.change();   //自动提示框选择前会导致下单的change事件触发，因此主动在填充后调用一次。
+                        });
+                    } else {
+                        $('#nameCodeInfos').hide();
+                    }
+                },
+                'json');
+            } else {
+                $('#nameCodeInfos').hide();
+            }
+        };
+        var time;
+        $('.nameCode').live('focus', function () {
+            var box = $(this);
+            box.css('background', 'none');
+            time = setInterval(_filter_staff_from_exist(box), 1000);
+        });
+        $('.nameCode').live('blur', function () {
+            clearInterval(time);
+            if ($(this).val() == '') {
+                $(this).css('background', 'url(/Skins/Default/images/searchInfotext.gif) no-repeat 5px 2px');
+            }
+        });
+        var temp;
+        $('#nameCodeInfos').live({
+            mouseenter: function () {
+                //clearTimeout(temp);
+                //temp = setTimeout(function () {
+                    $('.nameCode').unbind('blur');
+                //}, 100);
+            },
+            mouseleave: function () {
+                //clearTimeout(temp);
+                //temp = setTimeout(function () {
+                    $('.nameCode').blur(function () {
+                        if ($('#nameCodeInfos') != undefined) {
+                            $('#nameCodeInfos').hide();
+                        }
+                    });
+                //}, 100);
+            }
+        });
+        Number.prototype.toFixed = function (len) {
+            return Math.round(this * Math.pow(10, len)) / Math.pow(10, len);
+        }
+
+        //行情图表窗口
+        $('.lnkStockChart').live('click', function () {
+            if ($('#stockChart').html() == null) {
+                $(document.body).append('&lt;div id="stockChart"&gt;&lt;iframe id="ifrStockChart" frameborder="0" scrolling="no" src="/blank.htm" class="stock-ifr-size"&gt;&lt;/iframe&gt;&lt;/div&gt;');
+                $('#stockChart').dialog({
+                    title: '行情图表',
+                    width: 760,
+                    modal: true,
+                    draggable: false,
+                    cache: false,
+                    minimizable: false,
+                    maximizable: false,
+                    collapsible: false,
+                    closed: true,
+                    onClose: function () {
+                        $('#ifrStockChart').attr('src', 'javascript:;');  //防止闪烁
+                    }
+                });
+            }
+            $('#ifrStockChart').attr('src', '/Pages/Default/StockCharts/Frame.aspx?Code=' + $(this).attr('value'));
+            $('#stockChart').dialog('open');
+        });
+    </script>
+    
+    <style>
+    /*reset*/
+    #AssetSurvey_frame {
+        position:relative;
+        width:924px;
+    }
+    #AssetSurvey_frame .formdbzq{
+        margin-bottom:15px;
+        width:924px;   
+    }
+    #ProfitAdd {
+        width:926px;
+    }
+        #myaccordion1 {
+            width:924px;
+        }
+</style>
+    <script type="text/javascript" language="javascript">
+        $(function () {
+
+        /*允许用户同时进入融资融券大赛和普通大赛
+            //验证交易员是否进入的同一个大赛，防止用户同时进入多个大赛引起显示不正常的问题
+            var localHref = window.location.href;
+            //鼠标点击事件，检查COOKIE和交易员是否匹配
+            var traderValid = function () {
+                var matchTrader1 = localHref.match(/TraderID=[0-9]+/ig).toString().match(/[0-9]+/ig);
+                var matchTrader2 = document.cookie.match(/TraderID=[0-9]+/ig).toString().match(/[0-9]+/ig);
+                if (matchTrader1.toString() != '' &amp;&amp; matchTrader2.toString() != '') {
+                    if (matchTrader1.toString() != matchTrader2.toString()) {
+                        alert( '您已经登录其他大赛，请重新进入大赛才能进行操作。');
+                        window.location.href = 'PreMatchIndex.aspx';
+                        return;
+                    }
+                }
+            }
+            $('a,input').live('click', traderValid);
+            $('a,input').live('mouseover', traderValid);
+*/
+
+            ///////////////////////////////////////////////////////////////////////////////
+
+            //导航菜单样式初始化
+            $('label.vslide-title', $('#nav-menu-box')).each(function () {
+                $(this).next().hide();
+            });
+            //默认展开第一栏
+            $('label.vslide-title:first', $('#nav-menu-box')).next().show();
+
+            //栏目点击展开关闭
+            $('label.vslide-title', $('#nav-menu-box')).click(function () {
+                if ($(this).next().css('display') == 'none') {
+                 $('label.vslide-title', $('#nav-menu-box')).filter(".exp").click();
+                    $(this).removeClass('cls');
+                    $(this).addClass('exp');
+                    $(this).next().slideDown('fast');
+                } else {
+                    $(this).removeClass('exp');
+                    $(this).addClass('cls');
+                    $(this).next().slideUp('fast');
+                }
+            });
+
+            //功能链接
+            $('a', $('#nav-menu-box')).not($("#rzrqLink")).click(function () {
+                if ($(this).attr('target') != '') {
+                    return true;
+                }
+                $('a', $('#nav-menu-box')).removeClass('current');
+                $(this).addClass('current');
+                if ($(this).attr('href') != '#') {
+                    PageObject = null; //清除页面对象
+                    ClearBefore();  //清理Easyui生成的层代码
+                    $('#frame').panel('refresh', $(this).attr('href'));
+                }
+                $('#link-current').text('&gt; ' + $(this).parent().prev().text() + ' &gt; ' + $(this).html());
+
+                $(".compare").hide();
+                return false;
+            });
+            $("#rzrqLink").click(function(){
+             var currentTraderID=window.location.href.match(/TraderID=[0-9]+/ig).toString().match(/[0-9]+/ig);
+             var url=$(this).attr("href")+"?TraderID="+currentTraderID;
+             window.location.href=url;
+             return false;
+            });
+            $('#frame').panel({
+                cache: false,
+                border: false
+            });
+            //比一比
+            $("#btn-compare").click(function () {
+                var herfStr = '/Pages/Default/Rankings/';
+                var ids = "";
+                var type = $(".compare-top").attr("type");
+                var searchDate = $(".compare-top").attr("date");
+                var compareCount = 0;
+                $(".compare .man").each(function () {
+                    if (ids == "") {
+                        ids = $(this).attr("value");
+                    } else {
+                        ids += "," + $(this).attr("value");
+                    }
+                    compareCount += 1;
+                });
+                var winTitle;
+                if (type == 0) {//用户比一比
+                    if (compareCount &lt; 2) {
+                        alert("请至少选择两个用户！");
+                        return;
+                    }
+                    herfStr += "TraderCompare.aspx?TraderIDs=" + ids;
+                    winTitle = "用户比一比";
+                }
+                else if (type == 1) {//赛组比一比
+                    if (compareCount &lt; 2) {
+                        alert("请至少选择两个赛组！");
+                        return;
+                    }
+                    herfStr += "TeamCompare.aspx?TeamIDs=" + ids;
+                    winTitle = "赛组比一比";
+                } else {
+                    alert("不能进行比较！");
+                    return;
+                }
+                herfStr += "&amp;SearchDate=" + searchDate;
+                if (!$("#divCompareWindow").html()) {
+                    $("#mainbody").append('&lt;div id="divCompareWindow" style="_position:relative; _overflow-x:hidden;"&gt;&lt;/div&gt;');
+                }
+                $("#divCompareWindow").window({
+                    href: herfStr,
+                    title: winTitle,
+                    height: 500,
+                    width: 650,
+                    shadow: true,
+                    draggable: false,
+                    modal: true,
+                    cache: false,
+                    minimizable: false,
+                    maximizable: false,
+                    collapsible: false
+                });
+            });
+            $(".compare a").click(function () {
+                $(".compare ul li").remove();
+            })
+            $(".compare").hide();
+
+            //*****************************************
+            //自动跳出提示框
+            //*****************************************
+            function CheckMessager() {
+                $.post('/Handlers/Default/MyMessageHandler.ashx/?method=CheckMessager',
+                {},
+                function (data) {
+                    var bonus = ["Bonus0", "Bonus1", "Bonus5", "Bonus6", "Bonus7", "Bonus8", "Bonus9", "Bonus13", "Bonus14", "Bonus15", "Bonus19", "Bonus20", "Bonus21", "Bonus22"];
+                    var bonusNum = 0;
+                    var allNum = 0;
+                    var RZRQAdditionalNum = 0;
+                    var shares = ["Shares16","Shares17","Shares18"];
+                    var BondDividendNum=0;//债权派息提示信息数
+                    var FundResolutionNum =0;//基金拆合股提示信息数
+                    var SOExerciseNoticeNum =0;//到期行权提醒提示信息数
+                    var ExercisetipsNum=0;//行权提示提示信息数                   
+                    var sharesNum = 0;
+
+//                    var closePositionNum = 0;//强平提示
+
+
+                    for (var i = 0; i &lt; data.length; i++) {
+                        var text = data[i].Content
+                        if (/FoulsRecord\.aspx/ig.test(text)) {
+                            text = text.replace(/&lt;a.+&lt;\/a&gt;/ig, '&lt;a href="javascript:void(0)" class="lnk" id="messager_' + data[i].ID + '"&gt;点击&lt;a/&gt;');
+                        }
+                        if (/InfomationNotice\.aspx/ig.test(text)) {
+                            text = text.replace(/&lt;a.+&lt;\/a&gt;/ig, '&lt;a href="javascript:void(0)" class="lnk" id="infoNotice_' + data[i].ID + '"&gt;点击&lt;a/&gt;');
+                        }
+//                        if ($.inArray(data[i].Module, bonus) &lt; 0) {
+//                            if (data[i].Module != 'RZRQAdditional') {
+//                                $.messager.show({
+//                                    title: data[i].Title,
+//                                    msg: text,
+//                                    timeout: 0,
+//                                    showType: 'slide'
+//                                });
+//                            } else {
+//                                RZRQAdditionalNum++;
+//                            }
+//                        } else {
+//                            bonusNum++;
+//                        }
+                        if ($.inArray(data[i].Module, shares) &gt;= 0 || $.inArray(data[i].Module, bonus) &gt;= 0) {
+                            $.messager.show({
+                                    title: data[i].Title,
+                                    msg: text,
+                                    timeout: 0,
+                                    showType: 'slide'
+                                });
+                             if($.inArray(data[i].Module, shares) &gt;= 0 ) {
+                                sharesNum++;
+                             } else {
+                                allNum++;
+                                switch(data[i].Module)
+                                {
+                                    case "Bonus19":
+                                        BondDividendNum++;
+                                        break;
+                                    case "Bonus20":
+                                        FundResolutionNum++;
+                                        break;
+                                          case "Bonus21":
+                                        SOExerciseNoticeNum++;
+                                        break;
+                                          case "Bonus22":
+                                        ExercisetipsNum++;
+                                        break;
+                                        default:
+                                        bonusNum++;
+                                        break;
+                                }
+                     
+                             }
+                        } else {
+                             if (data[i].Module != 'RZRQAdditional') {
+                                $.messager.show({
+                                    title: data[i].Title,
+                                    msg: text,
+                                    timeout: 0,
+                                    showType: 'slide'
+                                });
+                            } else {
+                                RZRQAdditionalNum++;
+                            }
+                        }
+                        $('#messager_' + data[i].ID).click(function () {
+                            //触发违规记录导航点击
+                            $('label[id="vslide-title-trade"].cls', $('#nav-menu-box')).click();
+                            $('a[id="lnk-to-weigui"]', $('#nav-menu-box')).click();
+                        });
+                        $('#infoNotice_' + data[i].ID).click(function () {
+                            //触发信息提示导航点击
+                            $('label[id="vslide-title-infoCenter"].cls', $('#nav-menu-box')).click();
+                            $('a[id="lnk-to-infoNotice"]', $('#nav-menu-box')).click();
+                        });
+                    }
+                    if (allNum &gt; 0) {  
+                        var strMSG ="";
+                        var tipHeight =80;                        
+                          if(bonusNum&gt;0)
+                          {
+                            strMSG+= '你有' + bonusNum + '个分红信息。&lt;a class="a_bonus"  href="javascript:void(0)" class="lnk"&gt;点击&lt;/a&gt; 查看信息列表...&lt;p/&gt;'
+                            tipHeight+=30;
+                          }
+                           if(BondDividendNum&gt;0)
+                          {
+                            strMSG+= '你有' + BondDividendNum + '个债权派息信息。&lt;a class="a_bonus"  href="javascript:void(0)" class="lnk"&gt;点击&lt;/a&gt; 查看信息列表...&lt;p/&gt;'
+                              tipHeight+=30;
+                          }
+                           if(FundResolutionNum&gt;0)
+                          {
+                            strMSG+= '你有' + FundResolutionNum + '个基金拆合股信息。&lt;a class="a_bonus"  href="javascript:void(0)" class="lnk"&gt;点击&lt;/a&gt; 查看信息列表...&lt;p/&gt;'
+                            tipHeight+=30;
+                          }
+                           if(SOExerciseNoticeNum&gt;0)
+                          {
+                            strMSG+= '你有' + SOExerciseNoticeNum + '个到期行权提醒信息。&lt;a class="a_bonus"  href="javascript:void(0)" class="lnk"&gt;点击&lt;/a&gt; 查看信息列表...&lt;p/&gt;'
+                            tipHeight+=30;
+                          }
+                           if(ExercisetipsNum&gt;0)
+                          {
+                            strMSG+= '你有' + ExercisetipsNum + '个行权提示信息。&lt;a class="a_bonus" href="javascript:void(0)" class="lnk"&gt;点击&lt;/a&gt; 查看信息列表...&lt;p/&gt;'
+                            tipHeight+=30;
+                          }                           
+                        $.messager.show({
+                            title: '提示信息',
+                            msg: strMSG,
+                            timeout: 0,
+                            showType: 'slide',
+                            height:tipHeight
+                        });
+                        $('.a_bonus').click(function () {
+                            //触发信息提示导航点击
+                            $('label[id="vslide-title-infoCenter"].cls', $('#nav-menu-box')).click();
+                            $('a[id="lnk-to-infoNotice"]', $('#nav-menu-box')).click();
+                        });
+                    }
+                    if (RZRQAdditionalNum &gt; 0) {
+                        $.messager.show({
+                            title: '融资融券追保',
+                            msg: '你有' + RZRQAdditionalNum + '个融资融券追保信息。&lt;a id="a_RZRQAdditional" href="javascript:void(0)" class="lnk"&gt;点击&lt;/a&gt; 查看信息列表...',
+                            timeout: 0,
+                            showType: 'slide'
+                        });
+                        $('#a_RZRQAdditional').click(function () {
+                            //触发信息提示导航点击
+                            $('label[id="vslide-title-infoCenter"].cls', $('#nav-menu-box')).click();
+                            $('a[id="lnk-to-infoNotice"]', $('#nav-menu-box')).click();
+                        });
+                    }
+                    if(sharesNum &gt; 0)
+                    {
+                        $.messager.show({
+                            title:'配股信息',
+                            msg:'你有'+ sharesNum+'个配股提示信息。&lt;a id="a_shares" href="javascript:void(0)" class="lnk"&gt;点击&lt;/a&gt; 查看信息列表...',
+                            timeout:0,
+                            showType:'slide'
+                        });
+                         $('#a_shares').click(function () {
+                            //触发信息提示导航点击
+                            $('label[id="vslide-title-infoCenter"].cls', $('#nav-menu-box')).click();
+                            $('a[id="lnk-to-infoNotice"]', $('#nav-menu-box')).click();
+                        });
+                    }
+                },
+                'json');
+            }
+            setTimeout(CheckMessager, 1000 * 3);    //第一次加载延迟3秒钟
+
+                        
+            /***********************************/
+            //股票资讯搜索框
+            var infomationBoxTimer = setTimeout(function(){
+                $('#infomationBox').hide(500);
+            },3000);    //第一次初始化后三秒后自动关闭资讯框，防止对内容进行长时间遮挡。
+            $('#openInfomation').click(function(){
+                window.clearTimeout(infomationBoxTimer);    //关闭计时器
+                $('#infomationBox').toggle();
+            }); //展示或打开资讯搜索框
+            $('#btnGetInfomation').click(function(){
+                window.open(marketInfomationUrl + $('#txtInfomationCode').val());
+            }); //查询资讯信息
+        });
+
+      
+
+        //是否显示比一比窗口
+        function ShowCompareBox() {
+            $(".compare ul li").remove();
+            $(".compare").show();
+        }
+        //点击比较按钮处理
+        function ClickCompareHandler(value, name, type, searchDate) {
+            if ($(".compare-top").attr("type") &amp;&amp; $(".compare-top").attr("type") != type) {
+                $(".compare ul li").remove();
+            }
+            var isExists = false;
+            var total = 1;
+            $(".compare .man").each(function () {
+                if ($(this).attr("value") == value) {
+                    $.messager.alert('提示信息', name + "已选择", 'info');
+                    isExists = true;
+                }
+                else {
+                    total += 1;
+                }
+            });
+            if (total &gt; 3) {
+                alert("最多只能有3个参加比较！");
+                return;
+            }
+            if (!isExists) {
+                if (name.length &gt; 14) {
+                    $(".compare ul").append(" &lt;li class='man' title='点击删除" + name + "' value='" + value + "'&gt;" + name.substring(0, 14) + "...&lt;/li&gt;");
+                } else {
+                    $(".compare ul").append(" &lt;li class='man' title='点击删除" + name + "' value='" + value + "'&gt;" + name + "&lt;/li&gt;");
+                }
+            }
+
+            $(".compare-top").attr("type", type).attr("date", searchDate);
+
+            $(".compare ul li").click(function () {
+                $(this).remove();
+            });
+        }
+
+        //下单成功后回调事件
+        function onDoOrderSuccess() {
+            //关闭窗口
+            $('#doOrderPanel').window('close', true);
+        }
+
+        //数据导出共用方法
+        function DataExportFunc(url) {
+            $("#export-iframe").attr("src", url);
+        }
+    </script>
+
+    <style type="text/css">
+        #nameCodeInfos a
+        {
+            line-height: 20px;
+            padding: 0px 5px 0px 5px;
+            color: #000;
+            display: block;
+            cursor: pointer;
+        }
+        #nameCodeInfos a:hover
+        {
+            background-color: #fbec88;
+        }
+        #footer {
+            display:none;
+        }
+    </style>
+<script src="//sgoutong.baidu.com/embed/1539855883/asset/embed/pc_nb.js" charset="UTF-8"></script><link rel="stylesheet" type="text/css" href="//sgoutong.baidu.com/embed/1539855883/asset/embed/css/pc/main.css">
+<script type="text/javascript" src="//p.qiao.baidu.com/cps2/site/poll?cb=jsonp_bridge_1540179134759_6811289232995679&amp;l=1&amp;v=154017912654247905&amp;s=11542697&amp;e=10905431&amp;dev=0&amp;auth=%7B%22anonym%22%3A0%2C%22key%22%3A%22970200400843774823luov7690433737%22%2C%22sn%22%3A%22741347635%22%2C%22id%22%3A%22154017912654247905%22%2C%22from%22%3A4%2C%22token%22%3A%22bridge%22%7D&amp;_time=1540179134759" id="id_jsonp_bridge_1540179134759_6811289232995679" charset="utf-8"></script>
+</head>
+<body>
+    <!--请勿随意去除mainContainer，用于清除运行时生成的多余Html代码-->
+    <div id="mainContainer" style="padding-bottom: 20px;">
+        <form method="post" action="./MatchIndex.aspx?TraderID=463925" id="aspnetForm">
+<div class="aspNetHidden">
+<input type="hidden" name="__VIEWSTATE" id="__VIEWSTATE" value="/wEPDwUJOTE4OTY2Nzc2ZGQ=">
+</div>
+
+        
+<script type="text/javascript" language="javascript">
+    $(function () {
+        //管理端超管端退出登录
+        $('#logout').click(function () {
+            $.post('/Handlers/Default/Common/AdminIdentityHandler.ashx/?method=Logout',
+            {},
+            function (data) {
+                try {
+                    if (data.Success) {
+                        if (data.Type == '1') {
+                            window.location.href = data.url;
+                        } else {
+                            if (data.Type == '0') {
+                                window.location.href = '/Mi/AdminLogin.aspx';
+                            } else {
+                                window.location.href = data.url;
+                            }
+                        }
+                    }
+                } catch (e) {
+                    window.location.href = window.location.href;
+                }
+            },
+            'json');
+        });
+        //竞赛端返回首页
+        $('#returnHomePage').click(function () {
+            $.post('/Handlers/HomePagesHandler.ashx/?method=GetVisitHomeUrl',
+            {},
+            function (data) {
+                window.location.href = data.url;
+            },
+            'json');
+        });
+
+
+        /*           每30秒获取一次注册人数、在线人数、当前时间信息 begin    */
+        var initdata = function () {
+            $.post('/Handlers/Default/Common/IdentityHandler.ashx/?method=GetInitData', {}, function (data) {
+                if (data) {
+                    $("#lblUserNum").html("注册人数：" + data.UserNum);
+                    $("#lblUserOnline").html("在线人数：" + data.UserOnline);
+                    $("#lblNowDate").html(data.NowDate);
+                    $("#lblNowTime").html(data.NowTime);
+                }
+            }, "json");
+        };
+        initdata();
+        setInterval(initdata, 60000);
+        /*           每60秒获取一次注册人数、在线人数、当前时间信息 end    */
+
+        var customerlogoUrl = '/Skins/Default/images/logo.png';
+        $('#header div.site').css("background", "url('" + customerlogoUrl + "') no-repeat scroll 0px 0px/220px 55px rgba(0, 0, 0, 0)");
+        $('#iquantLoginimg').click(function () {
+            //            window.location.href = window.location.href;
+            if ("/index.aspx" == "/Index.aspx") { 
+                return;
+            }
+            window.location.href = '/index.aspx';
+        });
+        //function startWH(obj, target1, target2) {
+        //    clearInterval(obj.timer);
+        //    obj.timer = setInterval(function () {
+        //        if (obj.offsetWidth == target1 &amp;&amp; obj.offsetHeight == target2) {
+        //            clearInterval(obj.timer);
+        //        } else {
+        //            var speed1, speed2;
+        //            speed1 = (target1 - obj.offsetWidth) / 10;
+        //            speed1 = speed1 &gt; 0 ? Math.ceil(speed1) : Math.floor(speed1);
+        //            speed2 = (target2 - obj.offsetHeight) / 10;
+        //            speed2 = speed2 &gt; 0 ? Math.ceil(speed2) : Math.floor(speed2);
+        //            obj.style.width = obj.offsetWidth + speed1 + "px";
+        //            obj.style.height = obj.offsetHeight + speed2 + "px";
+        //        }
+        //    }, 16);
+        //}
+        //$('#qqBtn').mouseover(function () {
+        //    startWH(this, 100, 38);
+        //});
+        //$('#qqBtn').mouseout(function () {
+        //    startWH(this, 38, 38);
+        //});
+        $('#qqBtn').click(function () {
+            this.href = "http://p.qiao.baidu.com/cps/chat?siteId=11542697&amp;userId=10905431";
+        });
+    });
+</script>
+
+<script>
+    var _hmt = _hmt || [];
+    (function () {
+        var hm = document.createElement("script");
+        hm.src = "https://hm.baidu.com/hm.js?be35c7b4de185a28962bdade5f99fa90";
+        var s = document.getElementsByTagName("script")[0];
+        s.parentNode.insertBefore(hm, s);
+    })();
+</script>
+
+<style>
+        /*QQ客服 */
+        .qq{
+          position: fixed;
+          right: 0;      
+          top:154px;      
+          z-index: 10000;
+          display: block;
+          width: 100px;
+          overflow: hidden;
+          height: 38px;      
+          background:#297ACC url(/Skins/home/img/home/13.png) -1px -2px no-repeat;           
+          border-radius:4px;
+          -moz-border-radius:4px;
+          cursor: pointer;     
+          font-size: 12px;
+          color: #FFF;
+          line-height: 38px;
+        }
+        a.qq:link, a.qq:visited, a.qq:hover, a.qq:active {
+          text-decoration: none;
+        }
+        .qq span{
+          display: block;
+          text-indent:38px;
+          color: #fff;
+        }
+    #header {      
+        min-width:1200px;
+    }
+</style>
+<div id="header">
+    <div class="site" style='background: url("/Skins/Default/images/logo.png") 0px 0px / 220px 55px no-repeat scroll rgba(0, 0, 0, 0);'>
+        <table cellpadding="0" cellspacing="0">
+            <tbody>
+<tr>
+                <td class="td1" id="iquantLoginimg">
+                </td>
+                <td class="td2">
+                    <div class="tddiv">
+                        <label>
+                            <b class="i-house"></b><span id="lblUserNum">注册人数：362</span></label>
+                        <label>
+                            <b class="i-man"></b><span id="lblUserOnline">在线人数：289</span></label>
+                        <label>
+                            <b class="i-hour"></b><span id="lblNowDate">2018-10-22</span>
+                        </label>
+                        <label>
+                            <span id="lblNowTime">11:32</span>
+                        </label>
+                        <!--已经登录的用户信息框-->
+                        <label id="headerLoginInfoBox">
+                        
+                            当前用户：<span class="currentUser">
+                                jr0120180050</span>
+                            <a style="margin-left:10px" id="returnHomePage" href="javascript:void(0);">安全退出</a>
+                        
+                    </label>
+</div>
+                </td>
+            </tr>
+        </tbody>
+</table>
+    </div>
+    <a class="qq" id="qqBtn" target="_blank">
+        <span style="line-height: 38px;">在线客服</span>
+    </a>
+    
+    <div class="logo-bg">
+        <div class="logo">
+        </div>
+    </div>
+    
+</div>
+
+
+        
+    <div id="mainbody" style="position: relative;">
+        <table class="none">
+            <tbody>
+<tr>
+                <td class="none layout-leftmenu">
+                    <div id="nav-menu-box">
+                        <div class="header-title-bgl">
+                            <div class="header-title-bgr">
+                                栏目导航
+                            </div>
+                        </div>
+                        <label class="vslide-title cls">
+                            <label class="right">
+                                快捷方式</label></label>
+                        <div class="vslide-content" style="display: none;">
+                            <a class="" href="/Pages/Default/Query/AssetsGeneralNew1.aspx">
+                                竞赛概况</a> <a id="mytest" href="/Pages/Default/Home/PreMatchIndex.aspx" target="_self">退出竞赛</a>
+                        </div>
+                        
+                        <label class="vslide-title cls">
+                            <label class="right">
+                                行情中心</label></label>
+                        <div class="vslide-content" style="display: none;">
+                            <a href="/Pages/Default/StockMarket/PersonalGroups.aspx" class="">自选</a>
+                            
+                            <a href="/Pages/Default/StockMarket/Recommend.aspx">推荐池</a>
+                            
+                            <a href="/Pages/Default/StockMarket/Billboard.aspx">风云榜</a>
+                            
+                            <a href="/Pages/Default/StockMarket/XH.aspx?exchange=2">上海证券</a>
+                            
+                            <a href="/Pages/Default/StockMarket/XH.aspx?exchange=1">深圳证券</a>
+                            
+                            <a href="/Pages/Default/StockMarket/HK.aspx">香港证券</a>
+                            
+                            <a href="/Pages/Default/StockMarket/GZFutures.aspx">金融期货</a>
+                            
+                            <a href="/Pages/Default/StockMarket/SPFutures.aspx?exchange=6">
+                                大连期货</a>
+                            
+                            <a href="/Pages/Default/StockMarket/SPFutures.aspx?exchange=7">
+                                郑州期货</a>
+                            
+                            <a href="/Pages/Default/StockMarket/SPFutures.aspx?exchange=8">
+                                上海期货</a>
+                            
+                            <a href="/Pages/Default/StockMarket/StockOption.aspx">期权</a>
+                            
+                            <a href="/Pages/Default/StockMarket/Star.aspx">明星商品</a>
+                            
+                            <a href="/Pages/Default/StockMarket/MarketWarning.aspx">预警</a>
+                            
+                            
+                        </div>
+                        <label id="vslide-title-trade" class="vslide-title exp">
+                            <label class="right">
+                                交易中心</label></label>
+                        <div class="vslide-content" style="display: block;">
+                            <a href="/Pages/Default/Trade/DoOrders.aspx">下单</a> <a href="/Pages/Default/Query/HoldDetails.aspx" class="current">
+                                持仓明细</a> <a href="/Pages/Default/Query/TradesQuery.aspx">交易查询</a>
+                            
+                            <a href="/Pages/Default/BankFinance/TransferAccounts.aspx">
+                                银证转账</a>
+                            <a id="lnk-to-weigui" href="/Pages/Default/Query/ViolationRecord.aspx">
+                                    违规记录</a> <a href="/Pages/Default/Query/OperateEvaluate.aspx">
+                                        操作点评</a>
+                        </div>
+                        
+                        <!--首页排行榜点击需要查询此ID-->
+                        <label id="vslide-title-ranking" class="vslide-title cls">
+                            <label class="right">
+                                排行榜</label></label>
+                        <div class="vslide-content rankings-center" style="display: none;">
+                            <!--首页排行榜点击需要查询此ID-->
+                            <a id="lnk-personal-ranking" href="/Pages/Default/Rankings/RankingsMenu.aspx">
+                                个人排行榜</a>
+                            
+                        </div>
+                        
+                        <label class="vslide-title cls">
+                            <label class="right">
+                                投组分析</label></label>
+                        <div class="vslide-content" style="display: none;">
+                            <a href="/Pages/Default/Analysis/AssetSurveyNew.aspx">资产概况</a>
+                            <a href="/Pages/Default/Analysis/HistoryPosition.aspx">历史持仓</a>
+                            <a href="/Pages/Default/Analysis/BreedInvestmentProfitAndLoss.aspx">
+                                投资损益</a> <a href="/Pages/Default/Analysis/Industry.aspx">行业收益</a>
+                            <a href="/Pages/Default/Analysis/RiskManagement.aspx">风险管理</a>
+                            <a href="/Pages/Mi/Analysis/TranAnalysis.aspx">交易分析</a>
+                            <a href="/Pages/Default/Analysis/DataExports.aspx">数据导出</a>
+                            <a href="/Pages/Default/Analysis/LookUpMonthComment.aspx">报告点评</a>
+                        </div>
+                        <label id="vslide-title-infoCenter" class="vslide-title cls vslide-title-last">
+                            <label class="right">
+                                资讯中心</label></label>
+                        <div class="vslide-content" style="display: none;">
+                            <a href="/Pages/Default/InfoCenter/MatchNotice.aspx">竞赛公告</a>
+                            <a href="/Pages/Default/InfoCenter/SystemNotice.aspx">系统公告</a>
+                            <a id="lnk-to-infoNotice" href="/Pages/Default/InfoCenter/InfoNotice.aspx">
+                                信息提示</a> <a href="/Pages/Default/InfoCenter/MatchRule.aspx">
+                                    竞赛规则</a> <a href="/Pages/Default/InfoCenter/HoldLimit.aspx">
+                                        持仓限制</a> <a href="/Help/SystemNotes.pdf" target="_blank">指标释义</a>
+                            <a href="/Help/Contestant.rar" target="_blank">操作指南</a>
+                        </div>
+                        
+                    </div>
+                </td>
+                <td class="none">
+                    <div id="link-post" style="position:relative;">
+                        <label class="post">
+                            您的位置：</label>
+                        首页 &gt;
+                        金融模拟1班
+                        <label id="link-current">&gt; 
+                            
+                                交易中心 &gt; 
+                                持仓明细</label>
+                        <a id="backtoindex" class="img-link-1" style="position:absolute;top:2px;right:0px;background-color:#427CC6;color:#fff;text-decoration:none;" href="/Pages/Default/Home/PreMatchIndex.aspx" target="_self">返回竞赛列表</a>
+                    </div>
+                    <div class="panel" style="display: block; width: auto;"><div id="frame" href="/Pages/Default/Query/AssetsGeneralNew1.aspx" title="" class="panel-body panel-body-noheader panel-body-noborder" style="width: 926px; height: auto;">
+
+
+
+<title>
+	VE竞赛管理系统-竞赛端
+</title>
+    <style type="text/css">
+        #holdDetails_frame a.current
+        {
+            font-weight:bold;
+            color:#f00;
+            text-decoration:none;
+        }
+    </style>
+    
+
+
+    <form method="post" action="./HoldDetails.aspx?_=1540179146665" id="form1">
+<div class="aspNetHidden">
+<input type="hidden" name="__VIEWSTATE" id="__VIEWSTATE" value="/wEPDwULLTExNTQwMzMxNDJkZA==">
+</div>
+
+    <div id="holdDetails_frame">
+        <div class="condition-panel">
+            <div class="row">
+                <div id="tradeRule">品种：<a href="javascript:;" class="lnk" rel="-1">沪深证券</a>（<a href="javascript:;" class="lnk" rel="1">A股</a> <a href="javascript:;" class="lnk" rel="2">上海B股</a> <a href="javascript:;" class="lnk" rel="3">深圳B股</a> <a href="javascript:;" class="lnk" rel="4">基金</a> <a href="javascript:;" class="lnk" rel="5">债券</a> <a href="javascript:;" class="lnk" rel="6">权证</a>） <a href="javascript:;" class="lnk" rel="-2">香港证券</a>（<a href="javascript:;" class="lnk" rel="7">港股</a>） <a href="javascript:;" class="lnk current" rel="8">金融期货</a> <a href="javascript:;" class="lnk" rel="9">商品期货</a> <a href="javascript:;" class="lnk" rel="13">个股ETF期权</a> </div>
+            </div>
+        </div>
+        <div class="panel" style="display: block; width: auto;"><div id="holdDetailsframe" title="" class="panel-body panel-body-noheader panel-body-noborder" style="width: 926px; height: auto;">
+
+
+
+<title>
+	VE竞赛管理系统-竞赛端
+</title>
+    
+
+
+    <form method="post" action="./HoldDetails.aspx?_=1540179150263" id="form1">
+<div class="aspNetHidden">
+<input type="hidden" name="__VIEWSTATE" id="__VIEWSTATE" value="/wEPDwULLTE2MTkzODM5MzhkZA==">
+</div>
+
+    <div id="gzFutures_HoldDetails_frame">
+        <div class="panel" style="display: block; width: auto;">
+<div class="panel-header" style="width: 914px;">
+<div class="panel-title">金融期货账户</div>
+<div class="panel-tool"></div>
+</div>
+<div class="easyui-panel panel-body" title="" style="width: 924px; height: auto;">
+            <div id="SecuritiesAccount"><table class="form"><tbody>
+<tr>
+<td class="left bc1" style="width:100px;">账户资产</td>
+<td style="width:100px;">402,788.59</td>
+<td class="left bc1" style="width:100px;">持仓盯市盈亏</td>
+<td style="width:100px;">-1,140.00</td>
+<td class="left bc1" style="width:100px;">累计平仓盈亏</td>
+<td>2,788.59</td>
+</tr>
+<tr>
+<td class="left bc1">期初权益</td>
+<td>0.00</td>
+<td class="left bc1">持仓浮动盈亏</td>
+<td>-1,140.00</td>
+<td class="left bc1">累计交易费</td>
+<td>91.42</td>
+</tr>
+<tr>
+<td class="left bc1">可用资金</td>
+<td>97,880.59</td>
+<td class="left bc1">今平盯市盈亏</td>
+<td>0.00</td>
+<td class="left bc1">当日交易费</td>
+<td>91.42</td>
+</tr>
+<tr>
+<td class="left bc1">冻结资金</td>
+<td>0.00</td>
+<td class="left bc1">今平浮动盈亏</td>
+<td>0.00</td>
+<td class="left bc1">资产比例</td>
+<td>40.17%</td>
+</tr>
+<tr>
+<td class="left bc1">持仓保证金</td>
+<td>304,908.00</td>
+<td> </td>
+<td> </td>
+<td class="left bc1">资金风险度</td>
+<td>75.70%</td>
+</tr>
+</tbody></table></div>
+        </div>
+</div>
+        <p>
+        </p>
+        <div class="panel" style="display: block; width: auto;">
+<div class="panel-header panel-header-noborder" style="width: 916px;">
+<div class="panel-title">持仓明细</div>
+<div class="panel-tool"></div>
+</div>
+<div class="easyui-panel panel-body panel-body-noborder" title="" border="false" style="width: 926px; height: auto;">
+            <div class="panel datagrid" style="width: auto;"><div class="datagrid-wrap panel-body panel-body-noheader" title="" style="width: 924px; height: auto;">
+<div class="datagrid-toolbar"><a href="javascript:void(0)" class="l-btn l-btn-plain" style="float: left;"><span class="l-btn-left"><span class="l-btn-text icon-excel" style="padding-left: 20px;">导出</span></span></a></div>
+<div class="datagrid-view" style="width: 924px; height: 113px;">
+<div class="datagrid-view1" style="width: 162px;">
+<div class="datagrid-header" style="width: 162px; height: 32px;"><div class="datagrid-header-inner"><table border="0" cellspacing="0" cellpadding="0" style="height: 32px;"><tbody><tr>
+<td field="Code"><div class="datagrid-cell" style="width: 72px; text-align: left;">
+<span>代码</span><span class="datagrid-sort-icon"> </span>
+</div></td>
+<td field="Name"><div class="datagrid-cell" style="width: 72px; text-align: left;">
+<span>合约名称</span><span class="datagrid-sort-icon"> </span>
+</div></td>
+</tr></tbody></table></div></div>
+<div class="datagrid-body" style="width: 162px; height: 80px;"><div class="datagrid-body-inner"><table cellspacing="0" cellpadding="0" border="0"><tbody>
+<tr datagrid-row-index="0" style="height: 31px;">
+<td field="Code"><div style="width:72px;text-align:left;" class="datagrid-cell ">IH1812</div></td>
+<td field="Name"><div style="width:72px;text-align:left;" class="datagrid-cell ">上证50指数1812</div></td>
+</tr>
+<tr datagrid-row-index="1" class="datagrid-row-alt" style="height: 31px;">
+<td field="Code"><div style="width:72px;text-align:left;" class="datagrid-cell ">IH1812</div></td>
+<td field="Name"><div style="width:72px;text-align:left;" class="datagrid-cell ">上证50指数1812</div></td>
+</tr>
+</tbody></table></div></div>
+<div class="datagrid-footer" style="width: 162px;"><div class="datagrid-footer-inner" style="display: none;"></div></div>
+</div>
+<div class="datagrid-view2" style="width: 762px; left: 162px;">
+<div class="datagrid-header" style="width: 762px; height: 32px;"><div class="datagrid-header-inner"><table border="0" cellspacing="0" cellpadding="0" style="height: 32px;"><tbody><tr>
+<td field="Direction"><div class="datagrid-cell" style="width: 32px; text-align: left;">
+<span>买卖</span><span class="datagrid-sort-icon"> </span>
+</div></td>
+<td field="TodayOpenAvailableAmount"><div class="datagrid-cell" style="width: 72px; text-align: left;">
+<span>今开可用</span><span class="datagrid-sort-icon"> </span>
+</div></td>
+<td field="HistoryOpenAvailableAmount"><div class="datagrid-cell" style="width: 72px; text-align: left;">
+<span>历史开可用</span><span class="datagrid-sort-icon"> </span>
+</div></td>
+<td field="AvailableAmount"><div class="datagrid-cell" style="width: 72px; text-align: left;">
+<span>总可用</span><span class="datagrid-sort-icon"> </span>
+</div></td>
+<td field="FrozenAmount"><div class="datagrid-cell" style="width: 72px; text-align: left;">
+<span>冻结数</span><span class="datagrid-sort-icon"> </span>
+</div></td>
+<td field="HoldAmount"><div class="datagrid-cell" style="width: 72px; text-align: left;">
+<span>总持仓</span><span class="datagrid-sort-icon"> </span>
+</div></td>
+<td field="OpenAvgPrice"><div class="datagrid-cell" style="width: 92px; text-align: left;">
+<span>开仓均价</span><span class="datagrid-sort-icon"> </span>
+</div></td>
+<td field="MarginAmount"><div class="datagrid-cell" style="width: 92px; text-align: left;">
+<span>持仓保证金</span><span class="datagrid-sort-icon"> </span>
+</div></td>
+<td field="DSProfitLoss"><div class="datagrid-cell" style="width: 92px; text-align: left;">
+<span>盯市盈亏</span><span class="datagrid-sort-icon"> </span>
+</div></td>
+<td field="FloatProfitLoss"><div class="datagrid-cell" style="width: 92px; text-align: left;">
+<span>浮动盈亏</span><span class="datagrid-sort-icon"> </span>
+</div></td>
+<td field="Operate"><div class="datagrid-cell" style="width: 32px; text-align: left;">
+<span>操作</span><span class="datagrid-sort-icon"> </span>
+</div></td>
+</tr></tbody></table></div></div>
+<div class="datagrid-body" style="width: 762px; height: 80px;"><table cellspacing="0" cellpadding="0" border="0"><tbody>
+<tr datagrid-row-index="0" style="height: 31px;">
+<td field="Direction"><div style="width:32px;text-align:left;" class="datagrid-cell ">买</div></td>
+<td field="TodayOpenAvailableAmount"><div style="width:72px;text-align:left;" class="datagrid-cell ">1</div></td>
+<td field="HistoryOpenAvailableAmount"><div style="width:72px;text-align:left;" class="datagrid-cell ">0</div></td>
+<td field="AvailableAmount"><div style="width:72px;text-align:left;" class="datagrid-cell ">1</div></td>
+<td field="FrozenAmount"><div style="width:72px;text-align:left;" class="datagrid-cell ">0</div></td>
+<td field="HoldAmount"><div style="width:72px;text-align:left;" class="datagrid-cell ">1</div></td>
+<td field="OpenAvgPrice"><div style="width:92px;text-align:left;" class="datagrid-cell ">2,542.800</div></td>
+<td field="MarginAmount"><div style="width:92px;text-align:left;" class="datagrid-cell ">152,568.000</div></td>
+<td field="DSProfitLoss"><div style="width:92px;text-align:left;" class="datagrid-cell "><span class="color-up">1500.000</span></div></td>
+<td field="FloatProfitLoss"><div style="width:92px;text-align:left;" class="datagrid-cell "><span class="color-up">1500.000</span></div></td>
+<td field="Operate"><div style="width:32px;text-align:left;" class="datagrid-cell "><a href="javascript:;" rel='{"code":"IH1812","direction":"买"}' class="lnk a_gzFutures_Sell">平</a></div></td>
+</tr>
+<tr datagrid-row-index="1" class="datagrid-row-alt" style="height: 31px;">
+<td field="Direction"><div style="width:32px;text-align:left;" class="datagrid-cell ">卖</div></td>
+<td field="TodayOpenAvailableAmount"><div style="width:72px;text-align:left;" class="datagrid-cell ">1</div></td>
+<td field="HistoryOpenAvailableAmount"><div style="width:72px;text-align:left;" class="datagrid-cell ">0</div></td>
+<td field="AvailableAmount"><div style="width:72px;text-align:left;" class="datagrid-cell ">1</div></td>
+<td field="FrozenAmount"><div style="width:72px;text-align:left;" class="datagrid-cell ">0</div></td>
+<td field="HoldAmount"><div style="width:72px;text-align:left;" class="datagrid-cell ">1</div></td>
+<td field="OpenAvgPrice"><div style="width:92px;text-align:left;" class="datagrid-cell ">2,539.000</div></td>
+<td field="MarginAmount"><div style="width:92px;text-align:left;" class="datagrid-cell ">152,340.000</div></td>
+<td field="DSProfitLoss"><div style="width:92px;text-align:left;" class="datagrid-cell "><span class="color-down">-2640.000</span></div></td>
+<td field="FloatProfitLoss"><div style="width:92px;text-align:left;" class="datagrid-cell "><span class="color-down">-2640.000</span></div></td>
+<td field="Operate"><div style="width:32px;text-align:left;" class="datagrid-cell "><a href="javascript:;" rel='{"code":"IH1812","direction":"卖"}' class="lnk a_gzFutures_Sell">平</a></div></td>
+</tr>
+</tbody></table></div>
+<div class="datagrid-footer" style="width: 762px;"><div class="datagrid-footer-inner" style="display: none;"></div></div>
+</div>
+<div class="datagrid-resize-proxy"></div>
+<div id="holdDetails" style="display: none;">
+            </div>
+</div>
+<div class="datagrid-pager pagination">
+<table cellspacing="0" cellpadding="0" border="0"><tbody><tr>
+<td><a href="javascript:void(0)" icon="pagination-first" class="l-btn l-btn-plain l-btn-disabled"><span class="l-btn-left"><span class="l-btn-text"><span class="l-btn-empty pagination-first"> </span></span></span></a></td>
+<td><a href="javascript:void(0)" icon="pagination-prev" class="l-btn l-btn-plain l-btn-disabled"><span class="l-btn-left"><span class="l-btn-text"><span class="l-btn-empty pagination-prev"> </span></span></span></a></td>
+<td><div class="pagination-btn-separator"></div></td>
+<td><span style="padding-left:6px;">第</span></td>
+<td><input class="pagination-num" type="text" value="1" size="2"></td>
+<td><span style="padding-right:6px;">共1页</span></td>
+<td><div class="pagination-btn-separator"></div></td>
+<td><a href="javascript:void(0)" icon="pagination-next" class="l-btn l-btn-plain l-btn-disabled"><span class="l-btn-left"><span class="l-btn-text"><span class="l-btn-empty pagination-next"> </span></span></span></a></td>
+<td><a href="javascript:void(0)" icon="pagination-last" class="l-btn l-btn-plain l-btn-disabled"><span class="l-btn-left"><span class="l-btn-text"><span class="l-btn-empty pagination-last"> </span></span></span></a></td>
+</tr></tbody></table>
+<div class="pagination-info">显示1到2,共2记录</div>
+<div style="clear:both;"></div>
+</div>
+</div></div>
+        </div>
+</div>
+        <div id="doOrderPanel">
+        </div>
+    </div>
+    
+</form>
+
+
+</div></div>
+    </div>
+    
+</form>
+
+
+</div></div>
+                </td>
+            </tr>
+        </tbody>
+</table>
+        <!--股票资讯搜索框-->
+        <table id="openInfomationBox" border="0" cellpadding="0" cellspacing="0" style="position: fixed;
+            top: 200px; width: auto; right: 0px; height: 80px;">
+            <tbody>
+<tr>
+                <td id="openInfomation" style="width: 12px; cursor: pointer; background-color: #3973C4;
+                    color: #fff; padding: 5px;" title="点击关闭/展开">
+                    股票资讯
+                </td>
+                <td id="infomationBox" style="background: rgb(240, 240, 240); border: 1px solid rgb(204, 204, 204); padding: 5px; display: none;">
+                    <input id="txtInfomationCode" type="text" value="" class="nameCode" market="xh" style="width: 100px;
+                        height: 18px;">
+                    <input id="btnGetInfomation" type="button" value="查询">
+                    <p style="color: #666; width: 170px;">
+                        注：支持A股、B股的资讯信息</p>
+                </td>
+            </tr>
+        </tbody>
+</table>
+        <script type="text/javascript" language="javascript">
+            //为保证IE6.0能正常使用此功能
+            $(function () {
+                try {
+                    var browser = navigator.appName
+                    var b_version = navigator.appVersion
+                    var version = b_version.split(";");
+                    var trim_Version = (version.length &gt; 1) ? version[1].replace(/[ ]/g, "") : "";  //version.length &gt; 1 为了在IE下不报错
+                    if (browser == "Microsoft Internet Explorer" &amp;&amp; trim_Version == "MSIE6.0") {
+                        $('#openInfomationBox').css('position', 'absolute');
+                        $('#openInfomationBox').css('top', '60px');
+                        $('#openInfomationBox').css('right', '-22px');
+                    }
+                } catch (e) {
+                }
+            });
+        </script>
+        <div class="compare" style="display: none;">
+            <div class="compare-top">
+            </div>
+            <h4>
+                对比栏</h4>
+            <ul>
+            </ul>
+            <p>
+                <input type="button" id="btn-compare" value="比一比"></p>
+            <p>
+                <a href="#">清空对比栏</a></p>
+            <div class="compare-bot">
+            </div>
+        </div>
+        <iframe id="export-iframe" src="" style="display: none;"></iframe>
+    </div>
+
+        
+<script language="javascript" defer>function pageLoad()
+                        {Sys.WebForms.PageRequestManager.getInstance().add_endRequest(onEndRequest);}
+                                function onEndRequest(sender, e){
+                                    if (e.get_error())
+                                    {   
+                                        e.set_errorHandled(true);     
+                                        if(window.ajaxmsg != 'yes')
+                                        {
+                                            //alert('系统发生异常,请稍后再试!');
+                                            window.ajaxmsg = 'yes';
+                                             var objWindow = window.dialogArguments;
+                                if (objWindow != undefined &amp;&amp; objWindow != null)
+                                {
+                                    //objWindow.parent.location='~/index.aspx';
+                                    //window.close();
+                                    window.location.href = window.location.href;
+                                }
+                                else if(window.opener != undefined &amp;&amp; window.opener != null)
+                                {
+                                    // window.opener.location='~/index.aspx';                                    
+                                    //window.close();
+                                    window.location.href = window.location.href;
+                                }
+                                else
+                                {
+                                    //window.location='~/index.aspx';
+                                    window.location.href = window.location.href;
+                                }
+                                
+                                        }               
+                                    }
+                                }try{parent.$('.comparebox').hide();}catch(err){}</script><input type="text" style="display:none;"><input type="text" style="display:none;">
+</form>
+      
+        
+<style>
+    #footer div {
+         color: #49648A;
+    }
+</style>
+<div id="footer">
+
+    <div style="text-align: center; line-height: 25px;">
+        本网站所提供的交易行情均为即时资讯，网站提供的资讯内容仅供参考。对于资料内容错误、更新延误或传输中断，本公司不负任何法律责任，特此申明。
+        <br>        
+        <span id="copyRightStatement">深圳国泰安教育技术股份有限公司 版权所有 <span style="font-family: Arial;">©</span> ShenZhen GTA Education Tech Ltd. All Right Reserved.<a href="http://www.miitbeian.gov.cn/" target="_blank"> 粤ICP备05065871号</a></span>
+        <script type="text/javascript">
+            var strhtml = '深圳国泰安教育技术股份有限公司 版权所有 &lt;span style="font-family: Arial;"&gt;&amp;copy;&lt;/span&gt; ShenZhen GTA Education Tech Ltd. All Right Reserved.';
+            $.post('/Handlers/Default/CommonQueryHandler.ashx?method=GetGTACompanyName', function (data) {
+                var chinesename = data.ChineseName;
+                var englishname = data.EnglishName;
+                strhtml = chinesename
+                    + ' 版权所有 &lt;span style="font-family: Arial;"&gt;&amp;copy;&lt;/span&gt; '
+                    + englishname
+                    + ' All Right Reserved.'
+                + '&lt;a href="http://www.miitbeian.gov.cn/" target="_blank"&gt; 粤ICP备05065871号&lt;/a&gt;';
+                $('#copyRightStatement').append(strhtml);
+            }, 'json');
+           
+        </script>
+    </div>
+</div>
+
+    </div>
+
+
+</body>
+</html>'''
+r_position = r'<td field="Direction"><div style="width:32px;text-align:left;" class="datagrid-cell ">(.*?)</div></td>\s<td field="TodayOpenAvailableAmount"><div style="width:72px;text-align:left;" class="datagrid-cell ">(\d)</div></td>'
+m_position = re.findall(r_position, result_position)
+print(m_position)
